@@ -60,7 +60,7 @@ export const ColumnItem = memo(
 						isDragging && "opacity-40",
 					)}
 				>
-					<div className="[&_*]:!rounded-[3px] flex-shrink-0">
+					<div className="[&_*]:rounded-[3px]! flex-shrink-0">
 						<FileComponent.Thumb file={file} size={20} />
 					</div>
 					<span className="text-sm truncate flex-1">{file.name}{file.extension && `.${file.extension}`}</span>

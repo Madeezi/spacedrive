@@ -160,7 +160,7 @@ function IndexIndicator({path}: {path: SdPath}) {
 				<CircleButton
 					icon={isIndexed ? CircleIcon : CircleDashedIcon}
 					active={!isIndexed}
-					className={isIndexed ? '!text-accent' : undefined}
+					className={isIndexed ? 'text-accent!' : undefined}
 					title={isIndexed ? 'Location is indexed' : 'Not indexed'}
 				/>
 			</Popover.Trigger>

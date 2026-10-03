@@ -432,7 +432,7 @@ function MoreActionsMenu({
 				side="bottom"
 				align="end"
 				sideOffset={8}
-				className="!bg-app-box z-50 w-[200px] !rounded-lg !p-1"
+				className="bg-app-box! z-50 w-[200px] rounded-lg! p-1!"
 			>
 				{adapterHasUpdate && (
 					<button

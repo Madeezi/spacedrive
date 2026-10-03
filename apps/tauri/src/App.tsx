@@ -216,10 +216,10 @@ function App() {
 	if (error) {
 		console.log("Rendering error state");
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950 text-white">
+			<div className="flex h-screen items-center justify-center bg-app text-white">
 				<div className="text-center">
 					<h1 className="text-2xl font-bold mb-4">Error</h1>
-					<p className="text-red-400">{error}</p>
+					<p className="text-status-error">{error}</p>
 				</div>
 			</div>
 		);
@@ -228,7 +228,7 @@ function App() {
 	if (!client) {
 		console.log("Rendering loading state");
 		return (
-			<div className="flex h-screen items-center justify-center bg-gray-950 text-white">
+			<div className="flex h-screen items-center justify-center bg-app text-white">
 				<div className="text-center">
 					<div className="animate-pulse text-xl">
 						Initializing client...

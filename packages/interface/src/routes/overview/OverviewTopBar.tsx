@@ -251,7 +251,7 @@ export function OverviewTopBar({libraryName}: OverviewTopBarProps) {
 		() => (
 			<CircleButton
 				icon={Plus}
-				className="!bg-accent hover:!bg-accent-deep !text-white"
+				className="bg-accent! hover:bg-accent-deep! text-white!"
 				onClick={handleAddStorage}
 			>
 				Add Storage

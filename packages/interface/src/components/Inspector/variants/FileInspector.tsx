@@ -1738,7 +1738,7 @@ function InstanceRow({instance}: {instance: File}) {
 			title={getPathDisplay(instance.sd_path)}
 		>
 			{/* Thumbnail */}
-			<div className="flex-shrink-0 [&_*]:!rounded-[3px]">
+			<div className="flex-shrink-0 [&_*]:rounded-[3px]!">
 				<FileComponent.Thumb file={instance} size={20} />
 			</div>
 

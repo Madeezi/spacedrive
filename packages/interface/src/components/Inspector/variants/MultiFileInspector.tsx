@@ -99,12 +99,12 @@ export function MultiFileInspector({ files }: MultiFileInspectorProps) {
 						<div
 							key={file.id}
 							className={clsx(
-								thumbs.length > 1 && "!absolute",
+								thumbs.length > 1 && "absolute!",
 								i === 0 &&
 									thumbs.length > 1 &&
-									"z-30 !h-[76%] !w-[76%]",
-								i === 1 && "z-20 !h-4/5 !w-4/5 rotate-[-5deg]",
-								i === 2 && "z-10 !h-[84%] !w-[84%] rotate-[7deg]",
+									"z-30 h-[76%]! w-[76%]!",
+								i === 1 && "z-20 h-4/5! w-4/5! rotate-[-5deg]",
+								i === 2 && "z-10 h-[84%]! w-[84%]! rotate-[7deg]",
 							)}
 						>
 							<FileComponent.Thumb

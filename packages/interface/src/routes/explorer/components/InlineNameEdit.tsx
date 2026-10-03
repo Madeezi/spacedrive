@@ -95,7 +95,7 @@ export function InlineNameEdit({ file, onSave, onCancel, className }: InlineName
 				size="xs"
 				disabled={isSaving}
 				className={clsx(
-					"min-w-[60px] !h-auto !py-0.5 !px-1 text-center",
+					"min-w-[60px] h-auto! py-0.5! px-1! text-center",
 					isSaving && "opacity-50"
 				)}
 				inputElementClassName="text-center"

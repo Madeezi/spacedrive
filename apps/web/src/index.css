@@ -10,6 +10,9 @@
 
 /* Tell Tailwind v4 where to scan for utility classes */
 @source "../../../packages/interface/src";
+/* Prebuilt @spacedrive bundles: scan via stable workspace symlinks (see apps/tauri/src/index.css). */
+@source "../../../packages/interface/node_modules/@spacedrive/primitives/dist/index.js";
+@source "../../../packages/interface/node_modules/@spacedrive/ai/dist/index.js";
 @source "../../../../spaceui/packages/primitives/src";
 @source "../../../../spaceui/packages/ai/src";
 @source "../../../../spaceui/packages/explorer/src";
@@ -22,6 +25,19 @@
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Same prebuilt-Dialog pointer-events restore as apps/tauri/src/index.css. */
+div[role='dialog'].inset-0 {
+	pointer-events: none;
+}
+div[role='dialog'].inset-0 > form {
+	pointer-events: auto;
+}
+
+/* Same Radix popper layering fix as apps/tauri/src/index.css. */
+[data-radix-popper-content-wrapper] {
+	z-index: 200;
+}
 
 @utility top-bar-blur {
 	@apply border-app-line/50;
