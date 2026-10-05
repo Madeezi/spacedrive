@@ -132,6 +132,39 @@ let input = VolumeAddCloudInput {
 let output = action_manager.execute(input, library, context).await?;
 ```
 
+### Add Network Volumes (SFTP)
+
+Add an SFTP host as a tracked volume. Authentication is key-based:
+pass a private key path, or omit it to use default SSH identities and
+`ssh-agent` (password login is not supported by the backend). Deploy a
+key first with `ssh-copy-id user@host`. Passphrase-protected keys
+require `ssh-agent`.
+
+```rust
+use sd_core::ops::volumes::add_network::{NetworkStorageConfig, VolumeAddNetworkInput};
+use sd_core::volume::backend::NetworkProtocol;
+
+let input = VolumeAddNetworkInput {
+    protocol: NetworkProtocol::Sftp,
+    display_name: "Media Server".to_string(),
+    config: NetworkStorageConfig::Sftp {
+        host: "10.0.0.101".to_string(),
+        port: 22,
+        username: "media".to_string(),
+        key_path: None, // None = SSH defaults; or Some("~/.ssh/id_ed25519")
+        root: Some("/media".to_string()),
+    },
+};
+
+let output = action_manager.execute(input, library, context).await?;
+```
+
+Re-running the action for the same host updates the stored credential
+instead of duplicating the volume. Freshness is manual for now: rescan
+from the UI, as there is no live filesystem watching over the network
+and no polling scheduler yet (`Location.scan_interval` exists in the
+domain model for exactly this follow-up).
+
 #### CLI Usage
 
 Add cloud volumes from the command line:

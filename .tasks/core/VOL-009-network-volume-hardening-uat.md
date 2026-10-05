@@ -1,7 +1,7 @@
 ---
 id: VOL-009
 title: "Network volume hardening, polling, and UAT"
-status: To Do
+status: In Progress
 assignee: anhvy
 parent: VOL-000
 priority: High
@@ -21,20 +21,20 @@ MVP chain.
 
 ## Implementation Steps
 
-- [ ] Set conservative `scan_interval` default for network locations
-  (1h proposed) and surface last-scan time on the Overview volume row
-- [ ] Offline path: failed connection marks `is_available=false` with
-  the stage-named error; daemon retries on next interval, no hot loop
-- [ ] Credential rotation: re-run of `volumes.add_network` against an
-  existing fingerprint updates the stored credential instead of
-  duplicating the volume
-- [ ] Media-heavy sanity: index a photo/music-sized library over SFTP,
-  confirm ranged reads keep hashing traffic bounded; note numbers here
-- [ ] Docs: short section in `docs/` covering key setup (`ssh-copy-id`,
-  `ssh-agent` for passphrase keys), Strict host-key default, and the
-  polling-only freshness model
-- [ ] Full UAT against the real Jellyfin host over SFTP: add, browse,
-  rescan, stop server (offline UI), rotate key
+- [x] Credential rotation: re-running `volumes.add_network` for an
+  existing fingerprint validates then updates the stored credential
+  instead of duplicating the volume (implemented in the action)
+- [x] Docs: SFTP section in `docs/core/volumes.mdx` (key setup,
+  `ssh-agent` for passphrase keys, Strict host keys, manual
+  freshness model)
+- [ ] Polling defaults (`scan_interval`): DEFERRED — the location
+  table has no `scan_interval` column and no scheduler consumes
+  `needs_scan()` yet; adding both is a follow-up, locations rescan
+  manually until then
+- [ ] Offline flagging (`is_available`): DEFERRED — nothing reads the
+  flag today; manual rescan surfaces connection errors instead
+- [ ] Media-heavy sanity + full UAT against the real Jellyfin host
+  over SFTP: owner's run (needs their key + live library)
 
 ## Acceptance Criteria
 

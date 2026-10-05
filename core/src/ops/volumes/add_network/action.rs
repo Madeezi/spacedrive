@@ -146,8 +146,41 @@ impl LibraryAction for VolumeAddNetworkAction {
 			"username": username,
 			"root": root,
 		});
-
 		let fingerprint = VolumeFingerprint::from_network_volume("sftp", &network_identifier);
+
+		let credential_manager = CloudCredentialManager::new(
+			context.key_manager.clone(),
+			library.db().clone(),
+			library_id,
+		);
+
+		// Credential rotation: the volume already exists, so only the
+		// secret changes. The connection test above already validated it.
+		if context
+			.volume_manager
+			.get_volume(&fingerprint)
+			.await
+			.is_some()
+		{
+			credential_manager
+				.store_credential(library_id, &fingerprint.0, &credential)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to store credentials: {e}"))
+				})?;
+
+			tracing::info!(
+				"Updated credentials for existing network volume {} (fingerprint: {})",
+				self.input.display_name,
+				fingerprint.0
+			);
+
+			return Ok(VolumeAddNetworkOutput::new(
+				fingerprint,
+				self.input.display_name,
+				self.input.protocol,
+			));
+		}
 
 		let backend_arc: Arc<dyn crate::volume::VolumeBackend> = Arc::new(backend);
 		let now = chrono::Utc::now();
@@ -194,11 +227,6 @@ impl LibraryAction for VolumeAddNetworkAction {
 			supports_block_cloning: false,
 		};
 
-		let credential_manager = CloudCredentialManager::new(
-			context.key_manager.clone(),
-			library.db().clone(),
-			library_id,
-		);
 		credential_manager
 			.store_credential(library_id, &fingerprint.0, &credential)
 			.await

@@ -249,8 +249,7 @@ impl VolumeManager {
 								.and_then(|c| c.get("root"))
 								.and_then(|r| r.as_str())
 								.map(String::from);
-							let key_path_buf =
-								key_path.as_ref().map(std::path::PathBuf::from);
+							let key_path_buf = key_path.as_ref().map(std::path::PathBuf::from);
 
 							crate::volume::NetworkBackend::new_sftp(
 								host,
@@ -418,7 +417,7 @@ impl VolumeManager {
 									volume_type: crate::volume::types::VolumeType::Network,
 									mount_type: crate::volume::types::MountType::Network,
 									disk_type: crate::volume::types::DiskType::Unknown,
-								file_system: crate::volume::types::FileSystem::Other(fs_label),
+									file_system: crate::volume::types::FileSystem::Other(fs_label),
 									total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
 									available_space: db_volume.available_capacity.unwrap_or(0)
 										as u64,
@@ -457,8 +456,7 @@ impl VolumeManager {
 
 								// Update mount point cache for fast cloud volume lookup using cloud_identifier
 								if let Some(ref cloud_id) = volume.cloud_identifier {
-								let cache_key =
-									format!("{url_scheme}://{cloud_id}");
+									let cache_key = format!("{url_scheme}://{cloud_id}");
 									let mut mount_point_cache =
 										self.mount_point_cache.write().await;
 									mount_point_cache.insert(cache_key, fingerprint.clone());
