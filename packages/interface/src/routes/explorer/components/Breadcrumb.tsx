@@ -43,6 +43,22 @@ function parseSdPathSegments(sdPath: SdPath): PathSegment[] {
     }));
   }
 
+  if ("Network" in sdPath) {
+    const { protocol, host, path } = sdPath.Network;
+    const parts = path.split("/").filter(Boolean);
+
+    return parts.map((part, index) => ({
+      name: part,
+      path: {
+        Network: {
+          protocol,
+          host,
+          path: parts.slice(0, index + 1).join("/"),
+        },
+      },
+    }));
+  }
+
   return [];
 }
 

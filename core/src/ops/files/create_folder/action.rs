@@ -70,9 +70,9 @@ impl LibraryAction for CreateFolderAction {
 			message: e.to_string(),
 		})?;
 
-		// Validate parent is a physical or cloud path (not Content/Sidecar)
+		// Validate parent is a physical, cloud, or network path (not Content/Sidecar)
 		match &self.parent {
-			SdPath::Physical { .. } | SdPath::Cloud { .. } => {}
+			SdPath::Physical { .. } | SdPath::Cloud { .. } | SdPath::Network { .. } => {}
 			SdPath::Content { .. } => {
 				return Err(ActionError::Validation {
 					field: "parent".to_string(),

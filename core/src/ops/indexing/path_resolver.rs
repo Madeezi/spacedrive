@@ -227,6 +227,7 @@ impl PathResolver {
 				// TODO: Implement cloud path resolution
 				Ok(None)
 			}
+			SdPath::Network { .. } => Ok(None),
 			SdPath::Content { content_id } => {
 				// Query by content_id
 				entry::Entity::find()

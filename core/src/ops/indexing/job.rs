@@ -249,6 +249,8 @@ impl IndexerJob {
 			p.to_path_buf()
 		} else if let Some(cloud_path) = self.config.path.cloud_path() {
 			PathBuf::from(cloud_path)
+		} else if let Some(network_path) = self.config.path.network_path() {
+			PathBuf::from(network_path)
 		} else if !self.config.is_ephemeral() {
 			let loc_uuid = self
 				.config
@@ -311,6 +313,16 @@ impl IndexerJob {
 							self.config.path
 						)));
 						}
+						if self.config.path.is_network() {
+							ctx.log(format!(
+								"Network volume not found for path: {}",
+								self.config.path
+							));
+							return Err(JobError::execution(format!(
+							"Network volume not found for path: {}. The network volume may not be registered yet.",
+							self.config.path
+						)));
+						}
 
 						ctx.log(format!(
 							"No volume found for path: {}, will use LocalBackend fallback",
@@ -347,6 +359,8 @@ impl IndexerJob {
 					let cloud_url_base =
 						if let Some((service, identifier, _)) = self.config.path.as_cloud() {
 							Some(format!("{}://{}/", service.scheme(), identifier))
+						} else if let Some((protocol, host, _)) = self.config.path.as_network() {
+							Some(format!("{}://{}/", protocol.scheme(), host))
 						} else {
 							None
 						};

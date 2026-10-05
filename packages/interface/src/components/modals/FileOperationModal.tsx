@@ -394,6 +394,12 @@ function getFileName(path: SdPath): string {
 		return parts[parts.length - 1] || pathStr;
 	}
 
+	if ("Network" in path && path.Network) {
+		const pathStr = path.Network.path || "";
+		const parts = pathStr.split("/");
+		return parts[parts.length - 1] || pathStr;
+	}
+
 	return "Unknown";
 }
 

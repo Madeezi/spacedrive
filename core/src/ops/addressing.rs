@@ -36,6 +36,8 @@ impl PathResolver {
 			}
 			// Cloud paths are already resolved (no additional resolution needed)
 			SdPath::Cloud { .. } => Ok(path.clone()),
+			// Network paths are already resolved (no additional resolution needed)
+			SdPath::Network { .. } => Ok(path.clone()),
 			// If content-based, find the optimal physical path
 			SdPath::Content { content_id } => {
 				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))

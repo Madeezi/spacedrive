@@ -85,6 +85,10 @@ impl LocationManager {
 				self.validate_cloud_path(&library, *service, identifier)
 					.await?;
 			}
+			crate::domain::addressing::SdPath::Network { protocol, host, .. } => {
+				self.validate_network_path(&library, *protocol, host)
+					.await?;
+			}
 			crate::domain::addressing::SdPath::Content { .. } => {
 				return Err(LocationError::InvalidPath(
 					"Content paths cannot be used as locations".to_string(),
@@ -154,6 +158,20 @@ impl LocationManager {
 					.to_string();
 				let path_str = format!("{}://{}/{}", service.scheme(), identifier, path);
 				(name, path_str, None) // Cloud paths don't have inodes
+			}
+			crate::domain::addressing::SdPath::Network {
+				protocol,
+				host,
+				path,
+			} => {
+				let name = path
+					.split('/')
+					.last()
+					.filter(|s| !s.is_empty())
+					.unwrap_or("Network Root")
+					.to_string();
+				let path_str = format!("{}://{}/{}", protocol.scheme(), host, path);
+				(name, path_str, None) // Network paths don't have inodes
 			}
 			_ => unreachable!("Content paths already rejected"),
 		};
@@ -569,6 +587,28 @@ impl LocationManager {
 
 		// TODO: Validate that we can connect to the volume
 		// This would require accessing the VolumeManager and VolumeBackend
+
+		Ok(())
+	}
+
+	async fn validate_network_path(
+		&self,
+		library: &Library,
+		protocol: crate::volume::backend::NetworkProtocol,
+		host: &str,
+	) -> LocationResult<()> {
+		// Check the volume row exists by mount point (e.g. "sftp://nas:22")
+		let expected_mount_point = format!("{}://{}", protocol.scheme(), host);
+
+		let db = library.db().conn();
+		entities::volume::Entity::find()
+			.filter(entities::volume::Column::MountPoint.eq(expected_mount_point.clone()))
+			.one(db)
+			.await
+			.map_err(|e| LocationError::Other(format!("Database error: {e}")))?
+			.ok_or_else(|| {
+				LocationError::Other(format!("Network volume {expected_mount_point} not found"))
+			})?;
 
 		Ok(())
 	}

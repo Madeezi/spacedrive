@@ -383,6 +383,11 @@ impl LibraryQuery for MediaListingQuery {
 						identifier: identifier.clone(),
 						path: full_path,
 					},
+					SdPath::Network { protocol, host, .. } => SdPath::Network {
+						protocol: *protocol,
+						host: host.clone(),
+						path: full_path,
+					},
 					SdPath::Content { content_id } => SdPath::Content {
 						content_id: *content_id,
 					},
@@ -406,6 +411,15 @@ impl LibraryQuery for MediaListingQuery {
 					} => SdPath::Cloud {
 						service: *service,
 						identifier: identifier.clone(),
+						path: format!("{}/{}", path, full_name),
+					},
+					SdPath::Network {
+						protocol,
+						host,
+						path,
+					} => SdPath::Network {
+						protocol: *protocol,
+						host: host.clone(),
 						path: format!("{}/{}", path, full_name),
 					},
 					SdPath::Content { content_id } => SdPath::Content {
@@ -603,6 +617,47 @@ impl MediaListingQuery {
 						tracing::debug!("Cloud directory not found in directory_paths table");
 						Err(QueryError::Internal(
 							format!("Cloud directory '{}' has not been indexed yet. Please ensure the cloud volume is connected and indexing is complete.", path)
+						))
+					}
+				}
+			}
+			SdPath::Network {
+				protocol,
+				host,
+				path,
+			} => {
+				tracing::debug!(
+					"Looking for network directory: protocol={}, host={}, path='{}'",
+					protocol.scheme(),
+					host,
+					path
+				);
+
+				let directory_path = directory_paths::Entity::find()
+					.filter(directory_paths::Column::Path.eq(path))
+					.one(db)
+					.await?;
+				tracing::debug!("Directory path query result: {:?}", directory_path);
+
+				match directory_path {
+					Some(dp) => {
+						tracing::debug!("Found directory path entry: {:?}", dp);
+						tracing::debug!("Looking for entry with ID: {}", dp.entry_id);
+
+						let entry_result = entry::Entity::find_by_id(dp.entry_id).one(db).await?;
+						tracing::debug!("Entry query result: {:?}", entry_result);
+
+						entry_result.ok_or_else(|| {
+							QueryError::Internal(format!(
+								"Entry not found for network directory: {}",
+								dp.entry_id
+							))
+						})
+					}
+					None => {
+						tracing::debug!("Network directory not found in directory_paths table");
+						Err(QueryError::Internal(
+							format!("Network directory '{}' has not been indexed yet. Please ensure the network volume is connected and indexing is complete.", path)
 						))
 					}
 				}

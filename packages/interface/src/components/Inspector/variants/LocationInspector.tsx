@@ -190,7 +190,7 @@ function OverviewTab({ location }: { location: Location }) {
 
 			{/* Details */}
 			<Section title="Details" icon={Info}>
-				<InfoRow label="Path" value={'Physical' in location.sd_path ? location.sd_path.Physical.path : 'Cloud' in location.sd_path ? location.sd_path.Cloud.path : location.name} mono />
+				<InfoRow label="Path" value={'Physical' in location.sd_path ? location.sd_path.Physical.path : 'Cloud' in location.sd_path ? location.sd_path.Cloud.path : 'Network' in location.sd_path ? location.sd_path.Network.path : location.name} mono />
 			{location.file_count != null && (
 				<InfoRow
 					label="Total Files"

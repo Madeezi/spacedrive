@@ -61,6 +61,11 @@ export function sdPathToUri(sdPath: SdPath): string {
 		return `${scheme}://${identifier}/${path}`;
 	}
 
+	if ("Network" in sdPath) {
+		const { protocol, host, path } = sdPath.Network;
+		return `${protocol}://${host}/${path}`;
+	}
+
 	if ("Content" in sdPath) {
 		const { content_id } = sdPath.Content;
 		return `content://${content_id}`;

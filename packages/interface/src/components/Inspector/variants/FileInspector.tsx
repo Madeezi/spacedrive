@@ -87,6 +87,19 @@ export function FileInspector({file}: FileInspectorProps) {
 			};
 		}
 
+		if ('Network' in file.sd_path) {
+			const fullPath = file.sd_path.Network.path;
+			const lastSlash = fullPath.lastIndexOf('/');
+			if (lastSlash === -1) return undefined;
+
+			return {
+				Network: {
+					...file.sd_path.Network,
+					path: fullPath.substring(0, lastSlash)
+				}
+			};
+		}
+
 		return undefined;
 	};
 
@@ -910,7 +923,9 @@ function OverviewTab({file}: {file: File}) {
 							? String(file.sd_path.Physical.path)
 							: 'Cloud' in file.sd_path
 								? String(file.sd_path.Cloud.path)
-								: 'Content'
+								: 'Network' in file.sd_path
+									? String(file.sd_path.Network.path)
+									: 'Content'
 					}
 				/>
 				<InfoRow label="Local" value={file.is_local ? 'Yes' : 'No'} />
@@ -1719,6 +1734,8 @@ function InstanceRow({instance}: {instance: File}) {
 			return sdPath.Physical.path;
 		} else if ('Cloud' in sdPath) {
 			return sdPath.Cloud.path;
+		} else if ('Network' in sdPath) {
+			return sdPath.Network.path;
 		} else {
 			return 'Content';
 		}

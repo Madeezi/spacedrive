@@ -1040,6 +1040,7 @@ impl FileCopyJob {
 				path: path.with_file_name(&new_name),
 			},
 			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
+			SdPath::Network { .. } => panic!("Network storage operations are not yet implemented"),
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 			SdPath::Sidecar { .. } => panic!("Cannot rename a sidecar path"),
 		};
@@ -1483,6 +1484,7 @@ impl MoveJob {
 				path: path.with_file_name(&new_name),
 			},
 			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
+			SdPath::Network { .. } => panic!("Network storage operations are not yet implemented"),
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 			SdPath::Sidecar { .. } => panic!("Cannot rename a sidecar path"),
 		};

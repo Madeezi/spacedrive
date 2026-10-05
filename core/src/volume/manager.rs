@@ -1116,6 +1116,12 @@ impl VolumeManager {
 				service, identifier
 			);
 			Ok(self.find_cloud_volume(service, identifier).await)
+		} else if let Some((protocol, host, _path)) = sdpath.as_network() {
+			info!(
+				"Network path detected: protocol={:?}, host={}",
+				protocol, host
+			);
+			Ok(self.find_network_volume(protocol, host).await)
 		} else {
 			// Local path - resolve by filesystem path
 			if let Some(local_path) = sdpath.as_local_path() {
@@ -1330,6 +1336,40 @@ impl VolumeManager {
 
 					return Some(volume.clone());
 				}
+			}
+			None
+		})
+	}
+
+	/// Find a network volume by protocol and host.
+	///
+	/// Mirrors `find_cloud_volume`: the mount-point cache is keyed
+	/// `sftp://host:port`, populated by the restart loader and the add
+	/// action. Falls back to a mount-point scan.
+	pub async fn find_network_volume(
+		&self,
+		protocol: crate::volume::backend::NetworkProtocol,
+		host: &str,
+	) -> Option<Volume> {
+		let mount_point_key = format!("{}://{}", protocol.scheme(), host);
+
+		{
+			let mount_point_cache = self.mount_point_cache.read().await;
+			if let Some(fingerprint) = mount_point_cache.get(&mount_point_key) {
+				let volumes = self.volumes.read().await;
+				if let Some(volume) = volumes.get(fingerprint) {
+					return Some(volume.clone());
+				}
+			}
+		}
+
+		let volumes = self.volumes.read().await;
+		volumes.values().find_map(|volume| {
+			if volume.mount_point.to_string_lossy() == mount_point_key {
+				let mut mount_point_cache = self.mount_point_cache.blocking_write();
+				mount_point_cache.insert(mount_point_key.clone(), volume.fingerprint.clone());
+
+				return Some(volume.clone());
 			}
 			None
 		})

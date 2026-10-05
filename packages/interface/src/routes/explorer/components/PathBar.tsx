@@ -43,6 +43,11 @@ function getCurrentDirectoryName(sdPath: SdPath): string {
 		return parts[parts.length - 1] || sdPath.Cloud.identifier;
 	}
 
+	if ('Network' in sdPath) {
+		const parts = sdPath.Network.path.split('/').filter(Boolean);
+		return parts[parts.length - 1] || sdPath.Network.host;
+	}
+
 	if ('Content' in sdPath) {
 		return 'Content';
 	}
@@ -98,6 +103,34 @@ function parsePathSegments(sdPath: SdPath): PathSegment[] {
 					Cloud: {
 						service,
 						identifier,
+						path: parts.slice(0, index + 1).join('/')
+					}
+				}
+			}))
+		];
+	}
+
+	if ('Network' in sdPath) {
+		const {protocol, host, path} = sdPath.Network;
+		const parts = path.split('/').filter(Boolean);
+
+		return [
+			{
+				name: host,
+				path: {
+					Network: {
+						protocol,
+						host,
+						path: ''
+					}
+				}
+			},
+			...parts.map((part, index) => ({
+				name: part,
+				path: {
+					Network: {
+						protocol,
+						host,
 						path: parts.slice(0, index + 1).join('/')
 					}
 				}

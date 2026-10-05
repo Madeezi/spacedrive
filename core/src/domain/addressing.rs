@@ -40,6 +40,15 @@ pub enum SdPath {
 		/// The cloud-native path (e.g., "bucket/key" for S3)
 		path: String,
 	},
+	/// A network storage path within an SFTP/WebDAV volume
+	Network {
+		/// The network protocol (Sftp, Webdav)
+		protocol: crate::volume::backend::NetworkProtocol,
+		/// The host identifier (`host` or `host:port`)
+		host: String,
+		/// The server-relative path
+		path: String,
+	},
 	/// An abstract, location-independent handle that refers to file content
 	Content {
 		/// The unique content identifier
@@ -78,6 +87,13 @@ impl<'de> Deserialize<'de> for SdPath {
 		}
 
 		#[derive(Deserialize)]
+		struct SdPathNetworkHelper {
+			protocol: String,
+			host: String,
+			path: String,
+		}
+
+		#[derive(Deserialize)]
 		struct SdPathContentHelper {
 			content_id: String,
 		}
@@ -95,6 +111,7 @@ impl<'de> Deserialize<'de> for SdPath {
 		enum SdPathHelper {
 			Physical { Physical: SdPathPhysicalHelper },
 			Cloud { Cloud: SdPathCloudHelper },
+			Network { Network: SdPathNetworkHelper },
 			Content { Content: SdPathContentHelper },
 			Sidecar { Sidecar: SdPathSidecarHelper },
 		}
@@ -118,6 +135,21 @@ impl<'de> Deserialize<'de> for SdPath {
 					service,
 					identifier: cloud.identifier,
 					path: cloud.path,
+				})
+			}
+			SdPathHelper::Network { Network: network } => {
+				let protocol =
+					crate::volume::backend::NetworkProtocol::from_scheme(&network.protocol)
+						.ok_or_else(|| {
+							serde::de::Error::custom(format!(
+								"Unknown network protocol: {}",
+								network.protocol
+							))
+						})?;
+				Ok(SdPath::Network {
+					protocol,
+					host: network.host,
+					path: network.path,
 				})
 			}
 			SdPathHelper::Content { Content: content } => {
@@ -171,6 +203,19 @@ impl SdPath {
 		}
 	}
 
+	/// Create a network storage SdPath
+	pub fn network(
+		protocol: crate::volume::backend::NetworkProtocol,
+		host: String,
+		path: impl Into<String>,
+	) -> Self {
+		Self::Network {
+			protocol,
+			host,
+			path: path.into(),
+		}
+	}
+
 	/// Create a content-addressed SdPath
 	pub fn content(content_id: Uuid) -> Self {
 		Self::Content { content_id }
@@ -212,6 +257,7 @@ impl SdPath {
 		match self {
 			Self::Physical { device_slug, .. } => Self::is_current_device(device_slug),
 			Self::Cloud { .. } => false,
+			Self::Network { .. } => false,
 			Self::Content { .. } => false,
 			Self::Sidecar { .. } => false,
 		}
@@ -228,6 +274,7 @@ impl SdPath {
 				}
 			}
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -246,6 +293,13 @@ impl SdPath {
 				path,
 			} => {
 				format!("{}://{}/{}", service.scheme(), identifier, path)
+			}
+			Self::Network {
+				protocol,
+				host,
+				path,
+			} => {
+				format!("{}://{}/{}", protocol.scheme(), host, path)
 			}
 			Self::Content { content_id } => {
 				format!("content://{}", content_id)
@@ -272,6 +326,7 @@ impl SdPath {
 		match self {
 			Self::Physical { path, .. } => path.file_name()?.to_str(),
 			Self::Cloud { path, .. } => path.split('/').last(),
+			Self::Network { path, .. } => path.split('/').last(),
 			Self::Content { .. } => None, // Content paths don't have filenames
 			Self::Sidecar {
 				variant, format, ..
@@ -300,6 +355,18 @@ impl SdPath {
 				parent_path.rfind('/').map(|idx| Self::Cloud {
 					service: *service,
 					identifier: identifier.clone(),
+					path: parent_path[..idx].to_string(),
+				})
+			}
+			Self::Network {
+				protocol,
+				host,
+				path,
+			} => {
+				let parent_path = path.trim_end_matches('/');
+				parent_path.rfind('/').map(|idx| Self::Network {
+					protocol: *protocol,
+					host: host.clone(),
 					path: parent_path[..idx].to_string(),
 				})
 			}
@@ -336,6 +403,23 @@ impl SdPath {
 					path: format!("{}{}{}", base_path, separator, path_str),
 				}
 			}
+			Self::Network {
+				protocol,
+				host,
+				path: base_path,
+			} => {
+				let path_str = path.as_ref().to_string_lossy();
+				let separator = if base_path.ends_with('/') || path_str.starts_with('/') {
+					""
+				} else {
+					"/"
+				};
+				Self::Network {
+					protocol: *protocol,
+					host: host.clone(),
+					path: format!("{}{}{}", base_path, separator, path_str),
+				}
+			}
 			Self::Content { .. } => panic!("Cannot join paths to content addresses"),
 			Self::Sidecar { .. } => panic!("Cannot join paths to sidecar addresses"),
 		}
@@ -361,6 +445,9 @@ impl SdPath {
 			} => {
 				// Look up cloud volume by identity
 				volume_manager.find_cloud_volume(*service, identifier).await
+			}
+			Self::Network { protocol, host, .. } => {
+				volume_manager.find_network_volume(*protocol, host).await
 			}
 			Self::Content { .. } => None, // Content paths don't have volumes until resolved
 			Self::Sidecar { .. } => None, // Sidecar paths don't have volumes until resolved
@@ -401,6 +488,21 @@ impl SdPath {
 			) => {
 				// Cloud paths are on the same volume if they have the same service and identifier
 				s1 == s2 && id1 == id2
+			}
+			(
+				Self::Network {
+					protocol: p1,
+					host: h1,
+					..
+				},
+				Self::Network {
+					protocol: p2,
+					host: h2,
+					..
+				},
+			) => {
+				// Network paths share a volume on matching protocol and host
+				p1 == p2 && h1 == h2
 			}
 			_ => false, // Content paths or mixed types can't be compared for volume
 		}
@@ -492,6 +594,24 @@ impl SdPath {
 			}
 
 			_ => {
+				// Try to parse as a network protocol scheme before cloud
+				if let Some(protocol) = crate::volume::backend::NetworkProtocol::from_scheme(scheme)
+				{
+					let parts: Vec<&str> = rest.splitn(2, '/').collect();
+					let host = parts[0].to_string();
+					let path = if parts.len() > 1 {
+						parts[1].to_string()
+					} else {
+						String::new()
+					};
+
+					return Ok(Self::Network {
+						protocol,
+						host,
+						path,
+					});
+				}
+
 				// Try to parse as cloud service scheme
 				let service = crate::volume::backend::CloudServiceType::from_scheme(scheme)
 					.ok_or(SdPathParseError::UnknownScheme)?;
@@ -539,6 +659,7 @@ impl SdPath {
 		match self {
 			Self::Physical { device_slug, .. } => Some(device_slug),
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -556,6 +677,7 @@ impl SdPath {
 		match self {
 			Self::Physical { path, .. } => Some(path),
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -568,6 +690,7 @@ impl SdPath {
 			Self::Sidecar { content_id, .. } => Some(*content_id),
 			Self::Physical { .. } => None,
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 		}
 	}
 
@@ -580,6 +703,7 @@ impl SdPath {
 				..
 			} => Some((*service, identifier.as_str())),
 			Self::Physical { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -597,6 +721,29 @@ impl SdPath {
 		match self {
 			Self::Cloud { path, .. } => Some(path),
 			Self::Physical { .. } => None,
+			Self::Network { .. } => None,
+			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
+		}
+	}
+
+	/// Get the network protocol and host if this is a Network path
+	pub fn network_identity(&self) -> Option<(crate::volume::backend::NetworkProtocol, &str)> {
+		match self {
+			Self::Network { protocol, host, .. } => Some((*protocol, host.as_str())),
+			Self::Physical { .. } => None,
+			Self::Cloud { .. } => None,
+			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
+		}
+	}
+
+	/// Get the server-relative path if this is a Network path
+	pub fn network_path(&self) -> Option<&str> {
+		match self {
+			Self::Network { path, .. } => Some(path),
+			Self::Physical { .. } => None,
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -610,6 +757,11 @@ impl SdPath {
 	/// Check if this is a Cloud path
 	pub fn is_cloud(&self) -> bool {
 		matches!(self, Self::Cloud { .. })
+	}
+
+	/// Check if this is a Network path
+	pub fn is_network(&self) -> bool {
+		matches!(self, Self::Network { .. })
 	}
 
 	/// Check if this is a Content path
@@ -627,6 +779,7 @@ impl SdPath {
 		match self {
 			Self::Physical { device_slug, path } => Some((device_slug.as_str(), path)),
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -641,6 +794,22 @@ impl SdPath {
 				path,
 			} => Some((*service, identifier.as_str(), path.as_str())),
 			Self::Physical { .. } => None,
+			Self::Network { .. } => None,
+			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
+		}
+	}
+
+	/// Try to get as a Network path, returning protocol, host, and path
+	pub fn as_network(&self) -> Option<(crate::volume::backend::NetworkProtocol, &str, &str)> {
+		match self {
+			Self::Network {
+				protocol,
+				host,
+				path,
+			} => Some((*protocol, host.as_str(), path.as_str())),
+			Self::Physical { .. } => None,
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 			Self::Sidecar { .. } => None,
 		}
@@ -657,6 +826,7 @@ impl SdPath {
 			} => Some((*content_id, kind, variant, format)),
 			Self::Physical { .. } => None,
 			Self::Cloud { .. } => None,
+			Self::Network { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
@@ -676,11 +846,12 @@ impl SdPath {
 		&self,
 		job_ctx: &crate::infra::job::context::JobContext<'a>,
 	) -> Result<SdPath, PathResolutionError> {
-		// For now, if it's already physical or cloud, just return it
+		// For now, if it's already physical, cloud, or network, just return it
 		// TODO: Implement proper resolution using job context's library and networking
 		match self {
 			Self::Physical { .. } => Ok(self.clone()),
 			Self::Cloud { .. } => Ok(self.clone()), // Cloud paths are already resolved
+			Self::Network { .. } => Ok(self.clone()), // Network paths are already resolved
 			Self::Content { content_id } => {
 				use crate::infra::db::entities::{
 					content_identity, device, location, ContentIdentity, Device, DirectoryPaths,
@@ -1081,5 +1252,71 @@ mod tests {
 		assert!(!path.is_physical());
 		assert!(!path.is_cloud());
 		assert!(!path.is_content());
+	}
+
+	#[test]
+	fn test_sdpath_network_creation() {
+		use crate::volume::backend::NetworkProtocol;
+
+		let path = SdPath::network(
+			NetworkProtocol::Sftp,
+			"nas.local:22".to_string(),
+			"media/movies",
+		);
+
+		assert!(path.is_network());
+		assert!(!path.is_physical());
+		assert!(!path.is_cloud());
+		assert!(!path.is_content());
+		assert!(!path.is_sidecar());
+		assert!(!path.is_local());
+
+		match &path {
+			SdPath::Network {
+				protocol,
+				host,
+				path,
+			} => {
+				assert_eq!(*protocol, NetworkProtocol::Sftp);
+				assert_eq!(host, "nas.local:22");
+				assert_eq!(path, "media/movies");
+			}
+			_ => panic!("Expected Network variant"),
+		}
+
+		assert_eq!(
+			path.as_network(),
+			Some((NetworkProtocol::Sftp, "nas.local:22", "media/movies"))
+		);
+		assert_eq!(path.network_path(), Some("media/movies"));
+		assert_eq!(path.file_name(), Some("movies"));
+	}
+
+	#[test]
+	fn test_sdpath_network_display_and_uri() {
+		use crate::volume::backend::NetworkProtocol;
+
+		let path = SdPath::network(
+			NetworkProtocol::Sftp,
+			"nas.local:22".to_string(),
+			"media/movies",
+		);
+		assert_eq!(path.display(), "sftp://nas.local:22/media/movies");
+		assert_eq!(path.to_uri(), "sftp://nas.local:22/media/movies");
+
+		let parsed = SdPath::from_uri("sftp://nas.local:22/media/movies").unwrap();
+		assert_eq!(parsed, path);
+
+		let parent = path.parent().unwrap();
+		assert_eq!(parent.display(), "sftp://nas.local:22/media");
+
+		let joined = parent.join("dune.mp4");
+		assert_eq!(joined.display(), "sftp://nas.local:22/media/dune.mp4");
+	}
+
+	#[test]
+	fn test_sdpath_network_unknown_scheme() {
+		let err = SdPath::from_uri("ftp://nas.local/media").unwrap_err();
+		assert!(matches!(err, SdPathParseError::UnknownScheme));
 	}
 }

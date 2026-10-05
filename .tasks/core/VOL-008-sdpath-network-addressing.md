@@ -1,7 +1,7 @@
 ---
 id: VOL-008
 title: "SdPath Network addressing end to end"
-status: To Do
+status: In Progress
 assignee: anhvy
 parent: VOL-000
 priority: High
@@ -37,9 +37,12 @@ the edge, but no backend behavior is needed here.
 
 ## Acceptance Criteria
 
-- [ ] `cargo build` with zero non-exhaustive-match warnings; full
+- [x] `cargo build` with zero non-exhaustive-match warnings; full
   `tsc -b` clean for touched packages (pre-existing drifts in
   TasksRoute/useSearchFiles excepted)
-- [ ] Breadcrumb renders `host/...` segments for a Network path and
-  navigates between them
+- [x] Breadcrumb renders `host/...` segments for a Network path and
+  navigates between them (mirrors Cloud arms; PathBar, Inspector,
+  FileOperationModal covered)
 - [ ] A location created on an `sftp://` path lists entries in Explorer
+  (indexer dispatch wired through `VolumeBackend` + `cloud_url_base`;
+  live listing verified in VOL-009 UAT)

@@ -49,6 +49,16 @@ impl LibraryQuery for ValidateLocationPathQuery {
 					is_on_primary_volume: false,
 				})
 			}
+			SdPath::Network { .. } => {
+				return Ok(ValidateLocationPathOutput {
+					is_recommended: true,
+					risk_level: RiskLevel::Low,
+					warnings: vec![],
+					suggested_alternative: None,
+					path_depth: 0,
+					is_on_primary_volume: false,
+				})
+			}
 			SdPath::Content { .. } | SdPath::Sidecar { .. } => {
 				return Err(QueryError::Internal(
 					"Content and Sidecar paths cannot be validated as locations".to_string(),

@@ -199,6 +199,21 @@ impl LibraryAction for LocationAddAction {
 				// This would require accessing the VolumeBackend, which isn't available in validation
 				// For now, we trust the user's input
 			}
+			SdPath::Network { protocol, host, .. } => {
+				// Validate network path by looking up the volume using VolumeManager
+				let _volume = context
+					.volume_manager
+					.find_network_volume(*protocol, host)
+					.await
+					.ok_or_else(|| ActionError::Validation {
+						field: "network_volume".to_string(),
+						message: format!(
+							"Network volume not found: {}://{}",
+							protocol.scheme(),
+							host
+						),
+					})?;
+			}
 			SdPath::Content { .. } => {
 				return Err(ActionError::Validation {
 					field: "path".to_string(),
