@@ -14,9 +14,11 @@ use crate::volume::error::VolumeError;
 
 pub mod cloud;
 pub mod local;
+pub mod network;
 
 pub use cloud::CloudBackend;
 pub use local::LocalBackend;
+pub use network::NetworkBackend;
 
 /// Minimal I/O backend trait for volume operations
 ///
@@ -61,6 +63,38 @@ pub trait VolumeBackend: Send + Sync + Debug {
 pub enum BackendType {
 	Local,
 	Cloud(CloudServiceType),
+	Network(NetworkProtocol),
+}
+
+/// Network protocol for remote volumes addressed over SFTP/WebDAV
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type,
+)]
+pub enum NetworkProtocol {
+	#[serde(rename = "sftp")]
+	Sftp,
+	#[serde(rename = "webdav")]
+	Webdav,
+}
+
+impl NetworkProtocol {
+	/// Get the URI scheme for this protocol
+	pub fn scheme(&self) -> &'static str {
+		match self {
+			Self::Sftp => "sftp",
+			Self::Webdav => "webdav",
+		}
+	}
+
+	/// Parse network protocol from URI scheme
+	/// Returns None if the scheme doesn't match any known protocol
+	pub fn from_scheme(scheme: &str) -> Option<Self> {
+		match scheme {
+			"sftp" => Some(Self::Sftp),
+			"webdav" => Some(Self::Webdav),
+			_ => None,
+		}
+	}
 }
 
 /// Cloud service type identifier

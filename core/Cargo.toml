@@ -92,6 +92,7 @@ opendal = { version = "0.54", features = [
 	"services-dropbox",
 	"services-azblob",
 	"services-gcs",
+	"services-sftp",
 ] }
 
 # Logging

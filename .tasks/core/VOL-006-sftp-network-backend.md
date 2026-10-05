@@ -1,7 +1,7 @@
 ---
 id: VOL-006
 title: "SFTP network backend over OpenDAL"
-status: To Do
+status: In Progress
 assignee: anhvy
 parent: VOL-000
 priority: High
@@ -40,8 +40,10 @@ plain-`ssh` default identity/agent behavior.
 
 ## Acceptance Criteria
 
-- [ ] `cargo build` passes with the new feature enabled
-- [ ] Unit tests: builder rejects empty host / bad port; trait methods
+- [x] `cargo build` passes with the new feature enabled
+- [x] Unit tests: builder rejects empty host / bad port; trait methods
   exercised against a local `sftp-server` via OpenSSH client on dev
   machines (documented, skipped when absent)
-- [ ] `cargo clippy` and `cargo fmt` clean for touched files
+- [x] `cargo clippy` and `cargo fmt` clean for touched files
+  (7 unit tests pass, 1 live test ignored; pre-existing fmt drift in
+  unrelated volume files left untouched)
