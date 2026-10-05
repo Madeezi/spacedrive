@@ -47,11 +47,25 @@ impl NetworkBackend {
 		}
 	}
 
+	/// Expand a leading `~` to the user's home directory so modal input
+	/// like `~/.ssh/id_ed25519` resolves. Returns the path unchanged
+	/// when there is no home to expand to.
+	pub fn expand_key_path(path: &Path) -> PathBuf {
+		let s = path.to_string_lossy();
+		if let Some(rest) = s.strip_prefix("~/") {
+			if let Some(home) = dirs::home_dir() {
+				return home.join(rest);
+			}
+		}
+		path.to_path_buf()
+	}
+
 	/// Create a new network backend for SFTP
 	///
-	/// `key_path` is a filesystem path to a private key. Pass `None` to
-	/// use default SSH identity files and any running ssh-agent, exactly
-	/// like `ssh user@host` in a terminal.
+	/// `key_path` is a filesystem path to a private key (`~` expands to
+	/// the home directory). Pass `None` to use default SSH identity
+	/// files and any running ssh-agent, exactly like `ssh user@host`
+	/// in a terminal.
 	pub async fn new_sftp(
 		host: impl AsRef<str>,
 		port: u16,
@@ -61,6 +75,7 @@ impl NetworkBackend {
 	) -> Result<Self, VolumeError> {
 		let host = host.as_ref().trim();
 		let username = username.as_ref().trim();
+		let key_path = key_path.map(|k| Self::expand_key_path(&k));
 
 		if host.is_empty() {
 			return Err(VolumeError::Platform(
@@ -91,7 +106,8 @@ impl NetworkBackend {
 			.user(username);
 
 		if let Some(key) = &key_path {
-			let key_str = key.to_str().ok_or_else(|| {
+			let expanded = Self::expand_key_path(key);
+			let key_str = expanded.to_str().ok_or_else(|| {
 				VolumeError::Platform("SFTP key path is not valid UTF-8".to_string())
 			})?;
 			builder = builder.key(key_str);
@@ -335,6 +351,20 @@ mod tests {
 		);
 	}
 
+	#[test]
+	fn expand_key_path_resolves_home() {
+		let expanded = NetworkBackend::expand_key_path(Path::new("~/.ssh/id_ed25519"));
+		if let Some(home) = dirs::home_dir() {
+			assert_eq!(expanded, home.join(".ssh/id_ed25519"));
+		} else {
+			assert_eq!(expanded, PathBuf::from("~/.ssh/id_ed25519"));
+		}
+
+		assert_eq!(
+			NetworkBackend::expand_key_path(Path::new("/etc/ssh/key")),
+			PathBuf::from("/etc/ssh/key")
+		);
+	}
 	#[tokio::test]
 	async fn sftp_rejects_empty_host() {
 		let err = NetworkBackend::new_sftp("", 22, "media", None, None)

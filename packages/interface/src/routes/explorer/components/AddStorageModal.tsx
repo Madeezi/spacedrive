@@ -49,7 +49,7 @@ import DriveDAV from "@sd/assets/icons/Drive-DAV.png";
 import DriveBox from "@sd/assets/icons/Drive-Box.png";
 
 type StorageCategory = "local" | "cloud" | "network" | "external";
-type ModalStep = "category" | "provider" | "local-config" | "cloud-config";
+type ModalStep = "category" | "provider" | "local-config" | "cloud-config" | "sftp-config";
 type SettingsTab = "preset" | "jobs";
 
 interface CategoryOption {
@@ -107,6 +107,15 @@ interface CloudFormData {
 	account_key?: string;
 	// GCS fields
 	credential?: string;
+}
+
+interface SftpFormData {
+	display_name: string;
+	host: string;
+	port: string;
+	username: string;
+	key_path: string;
+	root: string;
 }
 
 const categories: CategoryOption[] = [
@@ -403,6 +412,7 @@ function AddStorageDialog(props: {
 	const client = useSpacedriveClient();
 	const addLocation = useLibraryMutation("locations.add");
 	const addCloudVolume = useLibraryMutation("volumes.add_cloud");
+	const addNetworkVolume = useLibraryMutation("volumes.add_network");
 	const trackVolume = useLibraryMutation("volumes.track");
 	const indexVolume = useLibraryMutation("volumes.index");
 	const { data: suggestedLocations } = useLibraryQuery({
@@ -427,6 +437,17 @@ function AddStorageDialog(props: {
 	const cloudForm = useForm<CloudFormData>({
 		defaultValues: {
 			display_name: "",
+		},
+	});
+
+	const sftpForm = useForm<SftpFormData>({
+		defaultValues: {
+			display_name: "",
+			host: "",
+			port: "22",
+			username: "",
+			key_path: "",
+			root: "",
 		},
 	});
 
@@ -477,10 +498,18 @@ function AddStorageDialog(props: {
 		setStep("cloud-config");
 	};
 
+	const handleNetworkSelect = (protocolId: string) => {
+		if (protocolId === "sftp") {
+			setStep("sftp-config");
+		}
+	};
+
 	const handleBack = () => {
 		if (step === "cloud-config") {
 			setStep("provider");
 			setSelectedProvider(null);
+		} else if (step === "sftp-config") {
+			setStep("provider");
 		} else if (step === "local-config") {
 			setStep("provider");
 			localForm.setValue("path", "");
@@ -627,6 +656,69 @@ function AddStorageDialog(props: {
 					error instanceof Error
 						? error.message
 						: "Failed to add location",
+			});
+		}
+	});
+
+	const onSubmitSftp = sftpForm.handleSubmit(async (data) => {
+		const host = data.host.trim();
+		const username = data.username.trim();
+		const port = Number.parseInt(data.port.trim() || "22", 10);
+		const root = data.root.trim();
+
+		if (!host || !username || !Number.isFinite(port) || port <= 0) {
+			sftpForm.setError("root", {
+				type: "manual",
+				message: "Host, username, and a valid port are required",
+			});
+			return;
+		}
+
+		const keyPath = data.key_path.trim();
+
+		try {
+			const volumeResult = await addNetworkVolume.mutateAsync({
+				protocol: "sftp",
+				display_name: data.display_name.trim() || host,
+				config: {
+					type: "Sftp",
+					host,
+					port,
+					username,
+					key_path: keyPath || null,
+					root: root || null,
+				},
+			});
+
+			const locationInput: LocationAddInput = {
+				path: {
+					Network: {
+						protocol: "sftp",
+						host: `${host}:${port}`,
+						path: root,
+					},
+				},
+				name: data.display_name.trim() || host,
+				mode: "Deep",
+				job_policies: {},
+			};
+
+			const locationResult = await addLocation.mutateAsync(locationInput);
+			dialog.state.open = false;
+
+			if (locationResult?.path && props.onStorageAdded) {
+				props.onStorageAdded(locationResult.path);
+			}
+
+			void volumeResult;
+		} catch (error) {
+			console.error("Failed to add network storage:", error);
+			sftpForm.setError("root", {
+				type: "manual",
+				message:
+					error instanceof Error
+						? error.message
+						: "Failed to add network storage",
 			});
 		}
 	});
@@ -878,24 +970,28 @@ function AddStorageDialog(props: {
 				showBackButton={true}
 				onBack={handleBack}
 			>
-				<div className="space-y-3">
-					<div className="rounded-lg bg-accent/10 border border-accent/20 p-4 text-sm text-ink">
-						<strong>Coming Soon</strong>
-						<p className="mt-1 text-ink-dull">
-							Network protocol support (SMB, NFS, SFTP, WebDAV) is
-							currently in development. Check back in a future
-							update!
-						</p>
-					</div>
-					<div className="grid grid-cols-2 gap-3 opacity-50 pointer-events-none">
-						{networkProtocols.map((protocol) => (
+			<div className="space-y-3">
+				<div className="rounded-lg bg-accent/10 border border-accent/20 p-4 text-sm text-ink">
+					<strong>SFTP is ready</strong>
+					<p className="mt-1 text-ink-dull">
+						Connect over SSH with key authentication. SMB, NFS,
+						and WebDAV support is still in development.
+					</p>
+				</div>
+				<div className="grid grid-cols-2 gap-3">
+					{networkProtocols.map((protocol) => {
+						const available = protocol.id === "sftp";
+						return (
 							<button
 								key={protocol.id}
 								type="button"
-								disabled
+								disabled={!available}
+								onClick={() => handleNetworkSelect(protocol.id)}
 								className={clsx(
 									"flex items-center gap-3 rounded-lg border p-4",
-									"border-app-line bg-app-box",
+									available
+										? "transition-all hover:scale-[1.01] border-app-line bg-app-box hover:bg-app-hover hover:border-accent/50"
+										: "opacity-50 pointer-events-none border-app-line bg-app-box",
 								)}
 							>
 								<img
@@ -912,8 +1008,101 @@ function AddStorageDialog(props: {
 									</div>
 								</div>
 							</button>
-						))}
+						);
+					})}
 					</div>
+				</div>
+			</StorageDialog>
+		);
+	}
+
+	// Render SFTP configuration form
+	if (step === "sftp-config") {
+		return (
+			<StorageDialog
+				dialog={dialog}
+				form={sftpForm}
+				onSubmit={onSubmitSftp}
+				title="Add SFTP Storage"
+				icon={<img src={ServerIcon} className="size-5" alt="" />}
+				description="Connect over SSH with key authentication"
+				ctaLabel="Add Storage"
+				loading={addNetworkVolume.isPending}
+				showBackButton={true}
+				onBack={handleBack}
+			>
+				<div className="space-y-4 h-full overflow-y-auto pr-1">
+					<div className="space-y-2">
+						<Label>Display Name</Label>
+						<Input
+							{...sftpForm.register("display_name")}
+							size="md"
+							placeholder="Media Server"
+							className="bg-app-input"
+						/>
+					</div>
+
+					<div className="grid grid-cols-3 gap-2">
+						<div className="space-y-2 col-span-2">
+							<Label>Host</Label>
+							<Input
+								{...sftpForm.register("host")}
+								size="md"
+								placeholder="10.0.0.101"
+								className="bg-app-input"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label>Port</Label>
+							<Input
+								{...sftpForm.register("port")}
+								size="md"
+								placeholder="22"
+								className="bg-app-input"
+							/>
+						</div>
+					</div>
+
+					<div className="space-y-2">
+						<Label>Username</Label>
+						<Input
+							{...sftpForm.register("username")}
+							size="md"
+							placeholder="media"
+							className="bg-app-input"
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label>Private Key Path (optional)</Label>
+						<Input
+							{...sftpForm.register("key_path")}
+							size="md"
+							placeholder="~/.ssh/id_ed25519"
+							className="bg-app-input font-mono"
+						/>
+						<p className="text-xs text-ink-faint">
+							Leave empty to use default SSH identities and
+							ssh-agent. Password login is not supported;
+							deploy a key with ssh-copy-id first.
+						</p>
+					</div>
+
+					<div className="space-y-2">
+						<Label>Root Path (optional)</Label>
+						<Input
+							{...sftpForm.register("root")}
+							size="md"
+							placeholder="/media"
+							className="bg-app-input font-mono"
+						/>
+					</div>
+
+					{sftpForm.formState.errors.root && (
+						<p className="text-xs text-status-error">
+							{sftpForm.formState.errors.root.message}
+						</p>
+					)}
 				</div>
 			</StorageDialog>
 		);

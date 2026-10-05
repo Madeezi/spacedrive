@@ -1,7 +1,7 @@
 ---
 id: UI-002
 title: "Add Storage network step with SFTP form"
-status: To Do
+status: In Progress
 assignee: anhvy
 priority: High
 tags: [interface, add-storage, network, sftp, modal]
@@ -39,8 +39,8 @@ strings) and VOL-008 (TS `SdPath::Network`).
 ## Acceptance Criteria
 
 - [ ] SFTP flow against a real server: add, browse files in Explorer,
-  validation errors readable on bad host/key
-- [ ] No `tsc` errors in touched files; dialog centers, layers above
+  validation errors readable on bad host/key (live run in VOL-009 UAT)
+- [x] No `tsc` errors in touched files; dialog centers, layers above
   content, closes on backdrop click (regression cover for the
   z-index/pointer-events fixes)
-- [ ] SMB/NFS/WebDAV cards still render disabled with accurate copy
+- [x] SMB/NFS/WebDAV cards still render disabled with accurate copy
