@@ -209,7 +209,63 @@ impl VolumeManager {
 							.as_ref()
 							.and_then(|s| serde_json::from_str(s).ok());
 
-						let backend_result = match credential.service {
+						// URL scheme for mount cache keys and labels. Network
+						// volumes store their protocol in cloud_config.
+						let url_scheme = cloud_config
+							.as_ref()
+							.and_then(|c| c.get("protocol"))
+							.and_then(|p| p.as_str())
+							.map(String::from)
+							.unwrap_or_else(|| credential.service.scheme().to_string());
+						let fs_label = if url_scheme == "sftp" {
+							"SFTP".to_string()
+						} else {
+							format!("{:?}", credential.service)
+						};
+
+						// Network volumes key on credential data, not on the
+						// service discriminator (stored as Other). Rebuild
+						// from cloud_config host/port/root plus the secret.
+						let backend_result: Result<
+							std::sync::Arc<dyn crate::volume::VolumeBackend>,
+							VolumeError,
+						> = if let crate::crypto::cloud_credentials::CredentialData::SshKey {
+							username,
+							key_path,
+						} = &credential.data
+						{
+							let host = cloud_config
+								.as_ref()
+								.and_then(|c| c.get("host"))
+								.and_then(|h| h.as_str())
+								.unwrap_or("");
+							let port = cloud_config
+								.as_ref()
+								.and_then(|c| c.get("port"))
+								.and_then(|p| p.as_u64())
+								.unwrap_or(22) as u16;
+							let root = cloud_config
+								.as_ref()
+								.and_then(|c| c.get("root"))
+								.and_then(|r| r.as_str())
+								.map(String::from);
+							let key_path_buf =
+								key_path.as_ref().map(std::path::PathBuf::from);
+
+							crate::volume::NetworkBackend::new_sftp(
+								host,
+								port,
+								username,
+								key_path_buf,
+								root,
+							)
+							.await
+							.map(|backend| {
+								std::sync::Arc::new(backend)
+									as std::sync::Arc<dyn crate::volume::VolumeBackend>
+							})
+						} else {
+							match credential.service {
 							crate::volume::CloudServiceType::S3 => {
 								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
 									access_key_id,
@@ -336,6 +392,11 @@ impl VolumeManager {
 								warn!("Unsupported cloud service type {:?} for volume {}", credential.service, fingerprint.0);
 								continue;
 							}
+							}
+							.map(|backend| {
+								std::sync::Arc::new(backend)
+									as std::sync::Arc<dyn crate::volume::VolumeBackend>
+							})
 						};
 
 						match backend_result {
@@ -357,17 +418,14 @@ impl VolumeManager {
 									volume_type: crate::volume::types::VolumeType::Network,
 									mount_type: crate::volume::types::MountType::Network,
 									disk_type: crate::volume::types::DiskType::Unknown,
-									file_system: crate::volume::types::FileSystem::Other(format!(
-										"{:?}",
-										credential.service
-									)),
+								file_system: crate::volume::types::FileSystem::Other(fs_label),
 									total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
 									available_space: db_volume.available_capacity.unwrap_or(0)
 										as u64,
 									is_read_only: false,
 									is_mounted: true,
 									hardware_id: None,
-									backend: Some(Arc::new(backend)),
+									backend: Some(backend),
 									cloud_identifier: db_volume.cloud_identifier.clone(),
 									cloud_config,
 									apfs_container: None,
@@ -399,8 +457,8 @@ impl VolumeManager {
 
 								// Update mount point cache for fast cloud volume lookup using cloud_identifier
 								if let Some(ref cloud_id) = volume.cloud_identifier {
-									let cache_key =
-										format!("{}://{}", credential.service.scheme(), cloud_id);
+								let cache_key =
+									format!("{url_scheme}://{cloud_id}");
 									let mut mount_point_cache =
 										self.mount_point_cache.write().await;
 									mount_point_cache.insert(cache_key, fingerprint.clone());

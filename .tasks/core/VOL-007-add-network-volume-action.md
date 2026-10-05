@@ -1,7 +1,7 @@
 ---
 id: VOL-007
 title: "volumes.add_network action with encrypted credentials"
-status: To Do
+status: In Progress
 assignee: anhvy
 parent: VOL-000
 priority: High
@@ -48,7 +48,13 @@ attach. Blocked by VOL-006 (needs the backend constructors).
 ## Acceptance Criteria
 
 - [ ] `volumes.add_network` against local `sftp-server` returns fingerprint
-  + display name; volume appears in `volumes.list`
-- [ ] Wrong host/key yields a validation error naming the stage, no panic
-- [ ] Credential row exists encrypted in DB; no secret in volume row JSON
-- [ ] `cargo test` passes for touched modules; clippy/fmt clean
+  + display name; volume appears in `volumes.list` (deferred to VOL-009
+  UAT: needs a live library + SFTP server, no harness exists yet)
+- [x] Wrong host/key yields a validation error naming the stage, no panic
+  (by construction: validation before connect, no unwraps on I/O paths)
+- [x] Credential row exists encrypted in DB; no secret in volume row JSON
+  (verified by code path: secrets only in `CloudCredential`, config JSON
+  carries host/port/username/root)
+- [x] `cargo test` passes for touched modules; clippy/fmt clean
+  (14 pass incl. existing suites; restart-loader arm added so volumes
+  survive daemon restarts)

@@ -9,6 +9,7 @@
 //! - Ejecting removable volumes
 
 pub mod add_cloud;
+pub mod add_network;
 pub mod eject;
 pub mod index;
 pub mod list;
@@ -19,6 +20,7 @@ pub mod track;
 pub mod untrack;
 
 pub use add_cloud::{action::VolumeAddCloudAction, VolumeAddCloudOutput};
+pub use add_network::{action::VolumeAddNetworkAction, VolumeAddNetworkOutput};
 pub use eject::{VolumeEjectAction, VolumeEjectInput, VolumeEjectOutput};
 pub use index::{IndexVolumeAction, IndexVolumeInput, IndexVolumeOutput};
 pub use list::{VolumeFilter, VolumeListOutput, VolumeListQuery, VolumeListQueryInput};

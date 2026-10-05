@@ -285,6 +285,19 @@ pub enum CredentialData {
 
 	/// Connection string (Azure, etc.)
 	ConnectionString(String),
+
+	/// Username + secret for password/basic-auth network protocols
+	/// (WebDAV today; never SFTP — OpenDAL has no password login).
+	/// The secret is a password or token, never a key path.
+	UsernameSecret { username: String, secret: String },
+
+	/// SSH key auth for SFTP. `key_path` is a filesystem path to a
+	/// private key; `None` selects plain-`ssh` default identity/agent
+	/// behavior. Passphrase-protected keys require ssh-agent.
+	SshKey {
+		username: String,
+		key_path: Option<String>,
+	},
 }
 
 impl CloudCredential {
@@ -334,6 +347,28 @@ impl CloudCredential {
 		Self {
 			service,
 			data: CredentialData::ApiKey(api_key),
+			created_at: chrono::Utc::now(),
+			expires_at: None,
+		}
+	}
+
+	/// Create a username+secret credential for network protocols.
+	/// Service should be `CloudServiceType::Other`; network volumes key
+	/// on `CredentialData`, not on the service discriminator.
+	pub fn new_network_auth(username: String, secret: String) -> Self {
+		Self {
+			service: crate::volume::CloudServiceType::Other,
+			data: CredentialData::UsernameSecret { username, secret },
+			created_at: chrono::Utc::now(),
+			expires_at: None,
+		}
+	}
+
+	/// Create an SSH key credential for SFTP.
+	pub fn new_ssh_key(username: String, key_path: Option<String>) -> Self {
+		Self {
+			service: crate::volume::CloudServiceType::Other,
+			data: CredentialData::SshKey { username, key_path },
 			created_at: chrono::Utc::now(),
 			expires_at: None,
 		}
