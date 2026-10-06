@@ -79,6 +79,13 @@ impl LibraryAction for IndexVolumeAction {
 				identifier,
 				path: String::new(), // Root of cloud volume
 			}
+		} else if let Some((protocol, host)) = volume.parse_network_identity() {
+			// Network volume
+			SdPath::Network {
+				protocol,
+				host,
+				path: String::new(), // Root of network volume
+			}
 		} else {
 			// Local volume - use mount point
 			SdPath::Physical {

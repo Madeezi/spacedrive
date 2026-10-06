@@ -183,6 +183,10 @@ async fn check_for_simple_conflicts(
 			// Cloud paths are not yet supported for copy operations
 			return Ok(false);
 		}
+		SdPath::Network { .. } => {
+			// Network paths are not yet supported for copy operations
+			return Ok(false);
+		}
 		SdPath::Content { .. } => {
 			// Content paths cannot be destinations for copy operations
 			return Ok(false);

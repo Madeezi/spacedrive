@@ -465,6 +465,27 @@ impl Event {
 							file_path == scope_path
 						}
 				}
+				// Network path matching
+				(
+					SdPath::Network {
+						protocol: scope_protocol,
+						host: scope_host,
+						path: scope_path,
+					},
+					SdPath::Network {
+						protocol: file_protocol,
+						host: file_host,
+						path: file_path,
+					},
+				) => {
+					scope_protocol == file_protocol
+						&& scope_host == file_host
+						&& if include_descendants {
+							file_path.starts_with(scope_path.as_str())
+						} else {
+							file_path == scope_path
+						}
+				}
 				_ => false,
 			}
 		});

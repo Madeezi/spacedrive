@@ -898,6 +898,28 @@ impl Volume {
 
 		Some((service, identifier))
 	}
+
+	/// Parse the network identity from the mount point.
+	///
+	/// - "sftp://nas:22" with any stored identifier → Some((Sftp, "nas:22"))
+	/// - "/mnt/local" → None
+	pub fn parse_network_identity(
+		&self,
+	) -> Option<(crate::volume::backend::NetworkProtocol, String)> {
+		use crate::volume::backend::NetworkProtocol;
+
+		let mount_str = self.mount_point.to_string_lossy();
+		let parts: Vec<&str> = mount_str.splitn(2, "://").collect();
+
+		if parts.len() != 2 {
+			return None;
+		}
+
+		let protocol = NetworkProtocol::from_scheme(parts[0])?;
+		let host = parts[1].trim_start_matches('/').to_string();
+
+		Some((protocol, host))
+	}
 }
 
 impl From<&Volume> for VolumeInfo {
