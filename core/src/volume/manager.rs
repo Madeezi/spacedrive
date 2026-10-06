@@ -904,6 +904,14 @@ impl VolumeManager {
 			.collect();
 
 		for fingerprint in removed_fingerprints {
+			// Never evict user-tracked volumes: cloud and network volumes
+			// are not OS-detected, so every refresh would drop them right
+			// after registration. They stay resolvable until untracked.
+			if let Some(existing) = current_volumes.get(&fingerprint) {
+				if existing.is_tracked {
+					continue;
+				}
+			}
 			if let Some(removed_volume) = current_volumes.remove(&fingerprint) {
 				info!("Volume removed: {}", removed_volume.name);
 

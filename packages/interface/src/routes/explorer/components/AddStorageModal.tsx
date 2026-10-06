@@ -713,12 +713,18 @@ function AddStorageDialog(props: {
 			void volumeResult;
 		} catch (error) {
 			console.error("Failed to add network storage:", error);
+			// daemon_request rejects with the backend message as a plain
+			// string, not an Error instance — unwrap it so the user sees
+			// the actual stage that failed.
+			const message =
+				typeof error === "string" && error
+					? error
+					: error instanceof Error
+						? error.message
+						: "Failed to add network storage";
 			sftpForm.setError("root", {
 				type: "manual",
-				message:
-					error instanceof Error
-						? error.message
-						: "Failed to add network storage",
+				message,
 			});
 		}
 	});
