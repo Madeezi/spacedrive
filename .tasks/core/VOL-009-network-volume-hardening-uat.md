@@ -35,6 +35,10 @@ MVP chain.
   flag today; manual rescan surfaces connection errors instead
 - [ ] Media-heavy sanity + full UAT against the real Jellyfin host
   over SFTP: owner's run (needs their key + live library)
+- [x] UAT defect 2026-10-06: volume monitor evicted the SFTP volume
+  ~1s after registration (not OS-detected), failing locations.add;
+  fixed by retaining tracked volumes + surfacing backend messages
+  (commit on this branch, daemon restarted, volume reload verified)
 
 ## Acceptance Criteria
 
