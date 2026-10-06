@@ -600,7 +600,10 @@ async fn read_directory_with_backend(
 		.into_iter()
 		.map(|raw| {
 			let full_path = if let Some(base) = cloud_url_base {
+				// Incoming paths may already be full URIs from a parent
+				// iteration; strip the base first so it is not doubled.
 				let relative = path.to_string_lossy();
+				let relative = relative.strip_prefix(base).unwrap_or(&relative);
 				let joined = if relative.is_empty() {
 					raw.name.clone()
 				} else {
