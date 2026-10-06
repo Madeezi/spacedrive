@@ -14,6 +14,8 @@ import type {
 	ItemType,
 	File,
 	SdPath,
+	CloudServiceType,
+	NetworkProtocol,
 } from "@sd/ts-client";
 import type { Icon } from "@phosphor-icons/react";
 
@@ -27,6 +29,47 @@ export interface ItemMetadata {
 	icon: IconData;
 	label: string;
 	path: string | null;
+}
+
+// Build an SdPath from a volume mount point. Remote mounts keep their
+// URI variant (Network/Cloud) so directory listing resolves the volume
+// backend; plain paths stay Physical.
+export function sdPathFromMountPoint(
+	mountPoint: string,
+	deviceSlug: string,
+): SdPath {
+	const schemeSplit = mountPoint.split("://");
+	if (schemeSplit.length === 2) {
+		const [scheme, rest] = schemeSplit;
+		const slashAt = rest.indexOf("/");
+		const host = slashAt === -1 ? rest : rest.slice(0, slashAt);
+		const path = slashAt === -1 ? "" : rest.slice(slashAt + 1);
+		if (scheme === "sftp" || scheme === "webdav") {
+			return {
+				Network: {
+					protocol: scheme as NetworkProtocol,
+					host,
+					path,
+				},
+			};
+		}
+		if (scheme !== "local" && scheme !== "content" && scheme !== "sidecar") {
+			const [identifier, ...pathParts] = rest.split("/");
+			return {
+				Cloud: {
+					service: scheme as CloudServiceType,
+					identifier,
+					path: pathParts.join("/"),
+				},
+			};
+		}
+	}
+	return {
+		Physical: {
+			device_slug: deviceSlug,
+			path: mountPoint || "/",
+		},
+	};
 }
 
 // Type guards for ItemType discrimination
@@ -152,14 +195,14 @@ function getItemPath(
 	}
 
 	if (isVolumeItem(itemType)) {
-		// Navigate to explorer with volume's root path
+		// Navigate to explorer with volume's root path. Remote mounts
+		// (sftp://, s3://) keep their URI variant so the backend
+		// resolves the volume instead of the local filesystem.
 		if (volumeData) {
-			const sdPath = {
-				Physical: {
-					device_slug: volumeData.device_slug,
-					path: volumeData.mount_path || "/",
-				},
-			};
+			const sdPath = sdPathFromMountPoint(
+				volumeData.mount_path || "/",
+				volumeData.device_slug,
+			);
 			return `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}`;
 		}
 		return null;
@@ -288,12 +331,10 @@ export function buildDropTargetPath(
 	}
 
 	if (isVolumeItem(itemType) && volumeData) {
-		return {
-			Physical: {
-				device_slug: volumeData.device_slug,
-				path: volumeData.mount_path || "/",
-			},
-		};
+		return sdPathFromMountPoint(
+			volumeData.mount_path || "/",
+			volumeData.device_slug,
+		);
 	}
 
 	if (isLocationItem(itemType) && itemSdPath) {
