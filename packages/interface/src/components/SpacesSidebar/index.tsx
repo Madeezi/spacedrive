@@ -169,7 +169,7 @@ const SyncButton = memo(function SyncButton() {
 				side="top"
 				align="start"
 				sideOffset={8}
-				className="!bg-app z-50 max-h-[520px] w-[380px] !rounded-xl !p-0"
+				className="bg-app! z-50 max-h-[520px] w-[380px] rounded-xl! p-0!"
 			>
 				<div className="border-app-line flex items-center justify-between border-b px-4 py-3">
 					<h3 className="text-ink text-sm font-semibold">
@@ -310,7 +310,7 @@ const JobsButton = memo(
 					side="top"
 					align="start"
 					sideOffset={8}
-					className="!bg-app z-50 max-h-[480px] w-[360px] !rounded-xl !p-0"
+					className="bg-app! z-50 max-h-[480px] w-[360px] rounded-xl! p-0!"
 				>
 					<div className="border-app-line flex items-center justify-between border-b px-4 py-3">
 						<h3 className="text-ink text-sm font-semibold">

@@ -73,7 +73,7 @@ enum OpenResult: Codable {
 }
 
 @_cdecl("get_apps_for_path")
-func getAppsForPath(path: SRString) -> SRString {
+public func getAppsForPath(path: SRString) -> SRString {
     let url = URL(fileURLWithPath: path.toString())
 
     // macOS 12+: Use modern API
@@ -112,7 +112,7 @@ func getAppsForPath(path: SRString) -> SRString {
 }
 
 @_cdecl("open_path_with_default")
-func openPathWithDefault(path: SRString) -> SRString {
+public func openPathWithDefault(path: SRString) -> SRString {
     let url = URL(fileURLWithPath: path.toString())
     
     let success = NSWorkspace.shared.open(url)
@@ -125,7 +125,7 @@ func openPathWithDefault(path: SRString) -> SRString {
 }
 
 @_cdecl("open_path_with_app")
-func openPathWithApp(path: SRString, appId: SRString) -> SRString {
+public func openPathWithApp(path: SRString, appId: SRString) -> SRString {
     let fileURL = URL(fileURLWithPath: path.toString())
     let bundleId = appId.toString()
     
@@ -157,7 +157,7 @@ func openPathWithApp(path: SRString, appId: SRString) -> SRString {
 }
 
 @_cdecl("open_paths_with_app")
-func openPathsWithApp(paths: SRString, appId: SRString) -> SRString {
+public func openPathsWithApp(paths: SRString, appId: SRString) -> SRString {
     let pathStrings = paths.toString().split(separator: "\0")
     let fileURLs = pathStrings.map { URL(fileURLWithPath: String($0)) }
     let bundleId = appId.toString()

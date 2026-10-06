@@ -60,7 +60,7 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 					)}
 				</button>
 			</Popover.Trigger>
-			<Popover.Content side="top" align="start" sideOffset={8} className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl">
+			<Popover.Content side="top" align="start" sideOffset={8} className="w-[380px] max-h-[520px] z-50 p-0! bg-app! rounded-xl!">
 				<div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
 					<h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
 

@@ -315,7 +315,7 @@ function StorageDialog({
 			submitDisabled={submitDisabled}
 			onCancelled={true}
 			loading={loading}
-			formClassName="!min-w-[480px] !max-w-[480px] max-h-[80vh] flex flex-col"
+			formClassName="min-w-[480px]! max-w-[480px]! max-h-[80vh] flex flex-col"
 			hideButtons={hideButtons}
 			buttonsSideContent={
 				showBackButton ? (

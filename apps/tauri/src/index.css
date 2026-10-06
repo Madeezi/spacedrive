@@ -9,8 +9,12 @@
 @import "@spacedrive/tokens/css/themes/mocha";
 
 /* Tell Tailwind v4 where to scan for utility classes */
-@source "../../../packages/ui/src";
 @source "../../../packages/interface/src";
+/* @spacedrive/primitives and @spacedrive/ai ship prebuilt; scan their
+ * bundles via the stable workspace symlinks so overlay, tooltip, menu
+ * and state styles are generated. */
+@source "../../../packages/interface/node_modules/@spacedrive/primitives/dist/index.js";
+@source "../../../packages/interface/node_modules/@spacedrive/ai/dist/index.js";
 @source "../../../../spaceui/packages/primitives/src";
 @source "../../../../spaceui/packages/ai/src";
 @source "../../../../spaceui/packages/explorer/src";
@@ -23,6 +27,25 @@
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Restore backdrop-click-to-close for the prebuilt primitives Dialog: its
+ * full-viewport wrapper relies on a legacy `!`-prefixed
+ * pointer-events utility that Tailwind v4 drops, so clicks never reach
+ * the overlay beneath it. */
+div[role='dialog'].inset-0 {
+	pointer-events: none;
+}
+div[role='dialog'].inset-0 > form {
+	pointer-events: auto;
+}
+
+/* Radix popper menus (dropdown, popover, context menu) portal to <body>
+ * with z-50, so the sidebar (z-65) and TopBar (z-60) paint over them.
+ * Lift the positioning wrapper above all app chrome; daemon overlays
+ * (z-9999) stay on top. */
+[data-radix-popper-content-wrapper] {
+	z-index: 200;
+}
 
 @utility top-bar-blur {
 	@apply border-app-line/50;

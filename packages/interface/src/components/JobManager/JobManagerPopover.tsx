@@ -54,7 +54,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
       </Popover.Trigger>
       <Popover.Content side="top" align="start" sideOffset={8} className={clsx(
         "w-[360px] max-h-[480px] z-50",
-        "!p-0 !bg-app !rounded-xl"
+        "p-0! bg-app! rounded-xl!"
       )}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">

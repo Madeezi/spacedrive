@@ -112,7 +112,7 @@ export default defineConfig(() => ({
 	},
 
 	optimizeDeps: {
-		exclude: ['@spacedrive/ai', '@spacedrive/primitives', '@spacedrive/tokens']
+		exclude: [...(hasSpaceui ? ['@spacedrive/ai', '@spacedrive/primitives', '@spacedrive/tokens'] as const : [])]
 	},
 
 	clearScreen: false,
@@ -121,8 +121,9 @@ export default defineConfig(() => ({
 		strictPort: true,
 		fs: {
 			allow: [
-				path.resolve(__dirname, '../../..'),
+				path.resolve(__dirname, '../..'),
 				...(hasSpaceui ? [spaceui] : []),
+				...(hasSpacebot ? [spacebot] : []),
 			]
 		},
 		watch: {

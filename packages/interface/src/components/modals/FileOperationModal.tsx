@@ -234,7 +234,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 			ctaLabel={operation === "copy" ? "Copy" : "Move"}
 			onSubmit={form.handleSubmit(handleSubmit)}
 			onCancelled={handleCancel}
-			formClassName="!min-w-[400px] !max-w-[400px]"
+			formClassName="min-w-[400px]! max-w-[400px]!"
 		>
 			<div className="space-y-5 py-2">
 				{/* Source → Destination visual */}
