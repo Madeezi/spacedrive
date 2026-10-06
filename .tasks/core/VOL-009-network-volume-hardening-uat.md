@@ -39,6 +39,16 @@ MVP chain.
   ~1s after registration (not OS-detected), failing locations.add;
   fixed by retaining tracked volumes + surfacing backend messages
   (commit on this branch, daemon restarted, volume reload verified)
+- [x] UAT defect 2026-10-06: empty listings from three stacked causes —
+  operator root double-scoped paths (/data/media/data/media),
+  SFTP listers needing trailing slashes, and slash-less URIs failing
+  the processing safety check; fixed with absolute operator root,
+  trailing-slash read_dir, canonical slash-full Network paths, and a
+  segment-aware boundary check. Live rescan now discovers all 11
+  remote dirs.
+- [x] UAT defect 2026-10-06: XDG_STATE_HOME longer than ~60 chars
+  breaks SSH multiplex sockets (~104 byte OS cap) causing 30s pool
+  timeouts; backend now fails fast with an actionable message.
 
 ## Acceptance Criteria
 
