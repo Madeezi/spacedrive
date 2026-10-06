@@ -244,11 +244,6 @@ impl VolumeManager {
 								.and_then(|c| c.get("port"))
 								.and_then(|p| p.as_u64())
 								.unwrap_or(22) as u16;
-							let root = cloud_config
-								.as_ref()
-								.and_then(|c| c.get("root"))
-								.and_then(|r| r.as_str())
-								.map(String::from);
 							let key_path_buf = key_path.as_ref().map(std::path::PathBuf::from);
 
 							crate::volume::NetworkBackend::new_sftp(
@@ -256,7 +251,6 @@ impl VolumeManager {
 								port,
 								username,
 								key_path_buf,
-								root,
 							)
 							.await
 							.map(|backend| {

@@ -22,6 +22,11 @@ use crate::volume::error::VolumeError;
 /// vendor cloud APIs. SFTP is key-auth only (OpenDAL has no password login
 /// by upstream design); the key path is optional and falls back to plain
 /// `ssh` default identity/agent behavior when omitted.
+///
+/// Paths are always server-absolute (`/data/media`): like the S3 backend
+/// (where the bucket lives in the operator config, not the path), the
+/// operator root stays `/` and every SdPath carries the full path. Passing
+/// a scoped root to both the operator AND the path would double it.
 #[derive(Debug, Clone)]
 pub struct NetworkBackend {
 	/// OpenDAL operator for network I/O
@@ -29,9 +34,6 @@ pub struct NetworkBackend {
 
 	/// Network protocol for metadata
 	protocol: NetworkProtocol,
-
-	/// Root path on the remote (e.g., media directory)
-	root: PathBuf,
 }
 
 impl NetworkBackend {
@@ -71,7 +73,6 @@ impl NetworkBackend {
 		port: u16,
 		username: impl AsRef<str>,
 		key_path: Option<PathBuf>,
-		root: Option<String>,
 	) -> Result<Self, VolumeError> {
 		let host = host.as_ref().trim();
 		let username = username.as_ref().trim();
@@ -113,10 +114,6 @@ impl NetworkBackend {
 			builder = builder.key(key_str);
 		}
 
-		if let Some(r) = &root {
-			builder = builder.root(r);
-		}
-
 		let operator = opendal::Operator::new(builder)
 			.map_err(|e| VolumeError::Platform(format!("Failed to create SFTP operator: {e}")))?
 			.finish();
@@ -124,17 +121,12 @@ impl NetworkBackend {
 		Ok(Self {
 			operator,
 			protocol: NetworkProtocol::Sftp,
-			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
 		})
 	}
 
 	/// Create a network backend from a pre-configured OpenDAL operator
 	pub fn from_operator(operator: opendal::Operator, protocol: NetworkProtocol) -> Self {
-		Self {
-			operator,
-			protocol,
-			root: PathBuf::from("/"),
-		}
+		Self { operator, protocol }
 	}
 }
 
@@ -367,7 +359,7 @@ mod tests {
 	}
 	#[tokio::test]
 	async fn sftp_rejects_empty_host() {
-		let err = NetworkBackend::new_sftp("", 22, "media", None, None)
+		let err = NetworkBackend::new_sftp("", 22, "media", None)
 			.await
 			.unwrap_err();
 		assert!(matches!(err, VolumeError::Platform(_)));
@@ -375,7 +367,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn sftp_rejects_zero_port() {
-		let err = NetworkBackend::new_sftp("nas.local", 0, "media", None, None)
+		let err = NetworkBackend::new_sftp("nas.local", 0, "media", None)
 			.await
 			.unwrap_err();
 		assert!(matches!(err, VolumeError::Platform(_)));
@@ -383,7 +375,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn sftp_rejects_empty_username() {
-		let err = NetworkBackend::new_sftp("nas.local", 22, "  ", None, None)
+		let err = NetworkBackend::new_sftp("nas.local", 22, "  ", None)
 			.await
 			.unwrap_err();
 		assert!(matches!(err, VolumeError::Platform(_)));
@@ -396,7 +388,6 @@ mod tests {
 			22,
 			"media",
 			Some(PathBuf::from("/does/not/exist_ed25519")),
-			None,
 		)
 		.await
 		.unwrap_err();
@@ -423,7 +414,7 @@ mod tests {
 		let user = std::env::var("SFTP_USER").unwrap_or_else(|_| "root".to_string());
 		let key = std::env::var("SFTP_KEY").ok().map(PathBuf::from);
 
-		let backend = NetworkBackend::new_sftp(&host, 22, &user, key, None)
+		let backend = NetworkBackend::new_sftp(&host, 22, &user, key)
 			.await
 			.unwrap();
 

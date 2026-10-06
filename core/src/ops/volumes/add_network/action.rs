@@ -109,21 +109,25 @@ impl LibraryAction for VolumeAddNetworkAction {
 		// Backend construction doubles as the connection test: OpenDAL
 		// pools the SSH session, so the first I/O below fails fast on
 		// unreachable hosts, bad auth, or unknown host keys.
-		let backend =
-			NetworkBackend::new_sftp(host, *port, username, key_path_buf.clone(), root.clone())
-				.await
-				.map_err(|e| {
-					ActionError::InvalidInput(format!("Failed to create SFTP backend: {e}"))
-				})?;
+		let backend = NetworkBackend::new_sftp(host, *port, username, key_path_buf.clone())
+			.await
+			.map_err(|e| {
+				ActionError::InvalidInput(format!("Failed to create SFTP backend: {e}"))
+			})?;
 
-		backend
-			.exists(std::path::Path::new(root.as_deref().unwrap_or("/")))
+		let root_path = root.as_deref().unwrap_or("/");
+		if !backend
+			.exists(std::path::Path::new(root_path))
 			.await
 			.map_err(|e| {
 				ActionError::InvalidInput(format!(
 					"SFTP connection test failed (check host, credentials, host key): {e}"
 				))
-			})?;
+			})? {
+			return Err(ActionError::InvalidInput(format!(
+				"SFTP root path not found on server: {root_path}"
+			)));
+		}
 
 		let credential = CloudCredential::new_ssh_key(
 			username.to_string(),
