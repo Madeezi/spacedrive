@@ -80,9 +80,21 @@ impl LibraryQuery for LocationsListQuery {
 						))
 					})?;
 
-			let sd_path = SdPath::Physical {
-				device_slug: device.slug.clone(),
-				path: directory_path.path.clone().into(),
+			let sd_path = {
+				let raw_path = directory_path.path.clone();
+				// Remote URIs keep their variant so consumers resolve the
+				// volume backend instead of treating them as local paths.
+				if raw_path.contains("://") {
+					SdPath::from_uri(&raw_path).unwrap_or(SdPath::Physical {
+						device_slug: device.slug.clone(),
+						path: raw_path.into(),
+					})
+				} else {
+					SdPath::Physical {
+						device_slug: device.slug.clone(),
+						path: raw_path.into(),
+					}
+				}
 			};
 
 			out.push(Location::from_db_model(

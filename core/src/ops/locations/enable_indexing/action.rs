@@ -119,10 +119,21 @@ impl LibraryAction for EnableIndexingAction {
 				))
 			})?;
 
-		// Construct SdPath
-		let sd_path = crate::domain::addressing::SdPath::Physical {
-			device_slug: device.slug.clone(),
-			path: directory_path.path.clone().into(),
+		// Construct SdPath (remote URIs keep their variant so the
+		// indexer resolves the volume backend instead of local FS)
+		let raw_path = directory_path.path.clone();
+		let sd_path = if raw_path.contains("://") {
+			crate::domain::addressing::SdPath::from_uri(&raw_path).unwrap_or(
+				crate::domain::addressing::SdPath::Physical {
+					device_slug: device.slug.clone(),
+					path: raw_path.into(),
+				},
+			)
+		} else {
+			crate::domain::addressing::SdPath::Physical {
+				device_slug: device.slug.clone(),
+				path: raw_path.into(),
+			}
 		};
 
 		// Create managed location for indexing
