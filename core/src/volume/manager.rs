@@ -1566,6 +1566,17 @@ impl VolumeManager {
 			}),
 		});
 
+		// Mark the in-memory entry tracked so the monitor refresh (which
+		// only sees OS-detected volumes) retains cloud/network volumes
+		// instead of evicting them on the next cycle.
+		{
+			let mut volumes = self.volumes.write().await;
+			if let Some(entry) = volumes.get_mut(fingerprint) {
+				entry.is_tracked = true;
+				entry.library_id = Some(library.id());
+			}
+		}
+
 		Ok(model)
 	}
 
