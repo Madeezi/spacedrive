@@ -102,9 +102,25 @@ impl NetworkBackend {
 			}
 		}
 
+		// The SSH multiplexer needs a unix socket under the session state
+		// dir, capped at ~104 bytes by the OS. A long XDG_STATE_HOME makes
+		// every connection fail after the pool timeout instead of at once.
+		if let Some(state_home) = std::env::var_os("XDG_STATE_HOME") {
+			let state_home = state_home.to_string_lossy();
+			if state_home.len() > 60 {
+				return Err(VolumeError::Platform(
+					"XDG_STATE_HOME is too long for SSH multiplexing; unset it for the daemon process (exported control sockets are capped at ~104 bytes)".to_string(),
+				));
+			}
+		}
+
 		let mut builder = opendal::services::Sftp::default()
 			.endpoint(&Self::sftp_endpoint(host, port))
 			.user(username);
+
+		// Explicit root: without it OpenDAL resolves paths relative to the
+		// SSH login directory instead of the filesystem root.
+		builder = builder.root("/");
 
 		if let Some(key) = &key_path {
 			let expanded = Self::expand_key_path(key);
@@ -189,7 +205,12 @@ impl VolumeBackend for NetworkBackend {
 	}
 
 	async fn read_dir(&self, path: &Path) -> Result<Vec<RawDirEntry>, VolumeError> {
-		let remote_path = self.to_remote_path(path);
+		// SFTP listers only enumerate children when the directory path
+		// ends with '/'; without it the server returns the dir itself.
+		let mut remote_path = self.to_remote_path(path);
+		if !remote_path.ends_with('/') {
+			remote_path.push('/');
+		}
 		debug!("NetworkBackend::read_dir: {}", remote_path);
 
 		let mut entries = Vec::new();
