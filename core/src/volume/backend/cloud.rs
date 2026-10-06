@@ -238,13 +238,12 @@ impl CloudBackend {
 }
 
 impl CloudBackend {
-	/// Convert path to cloud storage path (removes leading /)
+	/// Convert path to cloud storage path (server-relative, no leading /).
+	/// Accepts bare paths and full URIs identically; discovery threads
+	/// full URIs back through listing calls.
 	fn to_cloud_path(&self, path: &Path) -> String {
-		// Cloud storage paths should not have leading /
-		path.to_str()
-			.unwrap_or("")
-			.trim_start_matches('/')
-			.to_string()
+		let s = path.to_str().unwrap_or("");
+		super::strip_uri_prefix(s).to_string()
 	}
 }
 

@@ -58,6 +58,22 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	fn backend_type(&self) -> BackendType;
 }
 
+/// Strip a `scheme://host/` URI prefix down to the server-relative path.
+///
+/// Discovery threads full URIs (`sftp://host/data/media/movies`) back
+/// through listing calls, while fresh paths arrive bare (`/data/media`).
+/// Both forms must resolve identically or recursion silently lists the
+/// wrong (nonexistent, swallowed-empty) location.
+pub(crate) fn strip_uri_prefix(path: &str) -> &str {
+	let path = path.trim_start_matches('/');
+	match path.split_once("://") {
+		Some((_, rest)) => match rest.split_once('/') {
+			Some((_, p)) => p,
+			None => "",
+		},
+		None => path,
+	}
+}
 /// Backend type identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
@@ -181,4 +197,22 @@ pub struct RawMetadata {
 	pub inode: Option<u64>,
 	/// Unix permission bits (mode), None for cloud backends or Windows
 	pub permissions: Option<u32>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn strip_uri_prefix_handles_all_path_forms() {
+		assert_eq!(strip_uri_prefix("/data/media"), "data/media");
+		assert_eq!(strip_uri_prefix("data/media"), "data/media");
+		assert_eq!(
+			strip_uri_prefix("sftp://10.0.0.101:22/data/media"),
+			"data/media"
+		);
+		assert_eq!(strip_uri_prefix("s3://bucket/photos"), "photos");
+		assert_eq!(strip_uri_prefix("sftp://host"), "");
+		assert_eq!(strip_uri_prefix(""), "");
+	}
 }

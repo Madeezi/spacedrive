@@ -147,12 +147,12 @@ impl NetworkBackend {
 }
 
 impl NetworkBackend {
-	/// Convert path to remote storage path (removes leading /)
+	/// Convert path to remote storage path (server-relative, no leading /).
+	/// Accepts bare paths ("/data/media") and full URIs
+	/// ("sftp://host/data/media") identically.
 	fn to_remote_path(&self, path: &Path) -> String {
-		path.to_str()
-			.unwrap_or("")
-			.trim_start_matches('/')
-			.to_string()
+		let s = path.to_str().unwrap_or("");
+		super::strip_uri_prefix(s).to_string()
 	}
 }
 
