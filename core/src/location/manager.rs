@@ -301,10 +301,11 @@ impl LocationManager {
 			.ok(); // Convert to Option and discard (we already logged the error)
 
 		// Create managed location with path
-		// For cloud locations, use the actual cloud path string for proper watcher filtering
+		// For cloud/network locations, use the URI string for proper watcher filtering
 		let location_path = match &sd_path {
 			crate::domain::addressing::SdPath::Physical { path, .. } => path.clone(),
 			crate::domain::addressing::SdPath::Cloud { .. } => PathBuf::from(&path_str),
+			crate::domain::addressing::SdPath::Network { .. } => PathBuf::from(&path_str),
 			_ => unreachable!(),
 		};
 
