@@ -92,7 +92,6 @@ impl<'de> Deserialize<'de> for SdPath {
 			host: String,
 			path: String,
 		}
-
 		#[derive(Deserialize)]
 		struct SdPathContentHelper {
 			content_id: String,
@@ -146,10 +145,13 @@ impl<'de> Deserialize<'de> for SdPath {
 								network.protocol
 							))
 						})?;
+				// Canonical form keeps the leading slash ("/data/media") so
+				// parsed URIs match UI-built paths everywhere downstream.
+				let path = Self::canonical_network_path(&network.path);
 				Ok(SdPath::Network {
 					protocol,
 					host: network.host,
-					path: network.path,
+					path,
 				})
 			}
 			SdPathHelper::Content { Content: content } => {
@@ -203,6 +205,16 @@ impl SdPath {
 		}
 	}
 
+	/// Canonical slash-full form for network paths ("/data/media") so
+	/// every construction site agrees with UI-built paths downstream.
+	fn canonical_network_path(raw: &str) -> String {
+		if raw.is_empty() {
+			String::new()
+		} else {
+			format!("/{}", raw.trim_start_matches('/'))
+		}
+	}
+
 	/// Create a network storage SdPath
 	pub fn network(
 		protocol: crate::volume::backend::NetworkProtocol,
@@ -212,7 +224,7 @@ impl SdPath {
 		Self::Network {
 			protocol,
 			host,
-			path: path.into(),
+			path: Self::canonical_network_path(&path.into()),
 		}
 	}
 
@@ -299,7 +311,12 @@ impl SdPath {
 				host,
 				path,
 			} => {
-				format!("{}://{}/{}", protocol.scheme(), host, path)
+				format!(
+					"{}://{}/{}",
+					protocol.scheme(),
+					host,
+					path.trim_start_matches('/')
+				)
 			}
 			Self::Content { content_id } => {
 				format!("content://{}", content_id)
@@ -599,11 +616,12 @@ impl SdPath {
 				{
 					let parts: Vec<&str> = rest.splitn(2, '/').collect();
 					let host = parts[0].to_string();
-					let path = if parts.len() > 1 {
+					let raw_path = if parts.len() > 1 {
 						parts[1].to_string()
 					} else {
 						String::new()
 					};
+					let path = Self::canonical_network_path(&raw_path);
 
 					return Ok(Self::Network {
 						protocol,
@@ -1279,16 +1297,16 @@ mod tests {
 			} => {
 				assert_eq!(*protocol, NetworkProtocol::Sftp);
 				assert_eq!(host, "nas.local:22");
-				assert_eq!(path, "media/movies");
+				assert_eq!(path, "/media/movies");
 			}
 			_ => panic!("Expected Network variant"),
 		}
 
 		assert_eq!(
 			path.as_network(),
-			Some((NetworkProtocol::Sftp, "nas.local:22", "media/movies"))
+			Some((NetworkProtocol::Sftp, "nas.local:22", "/media/movies"))
 		);
-		assert_eq!(path.network_path(), Some("media/movies"));
+		assert_eq!(path.network_path(), Some("/media/movies"));
 		assert_eq!(path.file_name(), Some("movies"));
 	}
 
@@ -1312,6 +1330,33 @@ mod tests {
 
 		let joined = parent.join("dune.mp4");
 		assert_eq!(joined.display(), "sftp://nas.local:22/media/dune.mp4");
+	}
+
+	#[test]
+	fn test_sdpath_network_uri_preserves_leading_slash() {
+		use crate::volume::backend::NetworkProtocol;
+
+		// URIs must round-trip to the canonical slash-full form that
+		// UI-built paths use, or downstream prefix checks diverge.
+		let parsed = SdPath::from_uri("sftp://nas.local:22/media/movies").unwrap();
+		assert_eq!(
+			parsed,
+			SdPath::Network {
+				protocol: NetworkProtocol::Sftp,
+				host: "nas.local:22".to_string(),
+				path: "/media/movies".to_string(),
+			}
+		);
+
+		let root = SdPath::from_uri("sftp://nas.local:22").unwrap();
+		assert_eq!(
+			root,
+			SdPath::Network {
+				protocol: NetworkProtocol::Sftp,
+				host: "nas.local:22".to_string(),
+				path: String::new(),
+			}
+		);
 	}
 
 	#[test]

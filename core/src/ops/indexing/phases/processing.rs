@@ -112,9 +112,20 @@ pub async fn run_processing_phase(
 	let is_cloud_path =
 		location_actual_str.contains("://") && !location_actual_str.starts_with("local://");
 
+	// Remote rows store absolute URIs ("sftp://host/data/media") while
+	// job roots may be bare paths ("/data/media"); compare the path
+	// portion on segment boundaries so neither form can fail open.
 	let is_within_boundaries = if is_cloud_path {
-		let root_str = location_root_path.to_string_lossy();
-		root_str.is_empty() || location_actual_str.starts_with(root_str.as_ref())
+		let actual_path = match location_actual_str.split_once("://") {
+			Some((_, rest)) => rest.split_once('/').map(|(_, p)| p).unwrap_or(""),
+			None => location_actual_str.as_ref(),
+		};
+		let root = location_root_path
+			.to_string_lossy()
+			.trim_start_matches('/')
+			.to_string();
+		let actual = actual_path.trim_start_matches('/');
+		root.is_empty() || actual == root || actual.starts_with(&format!("{root}/"))
 	} else {
 		location_root_path.starts_with(&location_actual_path)
 	};
