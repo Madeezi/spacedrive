@@ -160,30 +160,46 @@ impl LibraryAction for VolumeAddNetworkAction {
 
 		// Credential rotation: the volume already exists, so only the
 		// secret changes. The connection test above already validated it.
+		// The database row is re-checked because registration is
+		// in-memory only: if the row is gone, fall through and recreate
+		// everything instead of leaving an orphaned in-memory volume.
 		if context
 			.volume_manager
 			.get_volume(&fingerprint)
 			.await
 			.is_some()
 		{
-			credential_manager
-				.store_credential(library_id, &fingerprint.0, &credential)
+			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+			let row_exists = crate::infra::db::entities::volume::Entity::find()
+				.filter(
+					crate::infra::db::entities::volume::Column::Fingerprint
+						.eq(fingerprint.0.clone()),
+				)
+				.one(library.db().conn())
 				.await
-				.map_err(|e| {
-					ActionError::InvalidInput(format!("Failed to store credentials: {e}"))
-				})?;
+				.map_err(|e| ActionError::InvalidInput(format!("Failed to check volume row: {e}")))?
+				.is_some();
 
-			tracing::info!(
-				"Updated credentials for existing network volume {} (fingerprint: {})",
-				self.input.display_name,
-				fingerprint.0
-			);
+			if row_exists {
+				credential_manager
+					.store_credential(library_id, &fingerprint.0, &credential)
+					.await
+					.map_err(|e| {
+						ActionError::InvalidInput(format!("Failed to store credentials: {e}"))
+					})?;
 
-			return Ok(VolumeAddNetworkOutput::new(
-				fingerprint,
-				self.input.display_name,
-				self.input.protocol,
-			));
+				tracing::info!(
+					"Updated credentials for existing network volume {} (fingerprint: {})",
+					self.input.display_name,
+					fingerprint.0
+				);
+
+				return Ok(VolumeAddNetworkOutput::new(
+					fingerprint,
+					self.input.display_name,
+					self.input.protocol,
+				));
+			}
 		}
 
 		let backend_arc: Arc<dyn crate::volume::VolumeBackend> = Arc::new(backend);
